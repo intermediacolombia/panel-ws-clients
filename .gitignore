@@ -7,7 +7,7 @@ intermedia/
 
 # ── Credenciales y archivos sensibles ────────────────────────────────────────
 config-general.php
-config.php
+
 
 *.json
 !composer.json
