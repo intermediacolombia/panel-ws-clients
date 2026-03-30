@@ -1,0 +1,32 @@
+# ── Flutter app (compilar localmente con build.ps1) ──────────────────────────
+flutter_app/
+
+# ── Carpetas por empresa (generadas por build.ps1) ───────────────────────────
+empresas/
+intermedia/
+
+# ── Credenciales y archivos sensibles ────────────────────────────────────────
+config.php
+*.json
+!composer.json
+.installed
+
+# ── Firebase service account (nunca versionar) ───────────────────────────────
+*firebase-adminsdk*.json
+*-service-account.json
+
+# ── Uploads de usuarios ───────────────────────────────────────────────────────
+uploads/
+
+# ── Logs y temporales ────────────────────────────────────────────────────────
+*.log
+*.cache
+/tmp/
+
+# ── Editores / OS ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
