@@ -1,183 +1,203 @@
 -- ============================================================
---  PANEL DE AGENTES WHATSAPP — INTERMEDIA HOST
---  schema.sql — Ejecutar una sola vez en la BD inte_panelws
+--  Panel de Agentes — Schema completo
+--  Versión limpia para instalación desde cero.
+--  Compatible con MySQL 8+ y MariaDB 10.4+
 -- ============================================================
 
-SET NAMES utf8mb4;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET FOREIGN_KEY_CHECKS = 0;
+SET time_zone = "+00:00";
+/*!40101 SET NAMES utf8mb4 */;
 
--- ── departments ─────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `departments` (
-  `id`          INT          NOT NULL AUTO_INCREMENT,
-  `name`        VARCHAR(100) NOT NULL,
-  `slug`        VARCHAR(50)  NOT NULL,
-  `description` TEXT         NULL,
-  `color`       VARCHAR(7)   NOT NULL DEFAULT '#25D366',
-  `icon`        VARCHAR(50)  NOT NULL DEFAULT 'headset',
-  `active`      TINYINT(1)   NOT NULL DEFAULT 1,
-  `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO `departments` (`name`, `slug`, `description`, `color`, `icon`) VALUES
-  ('Ventas',          'ventas',  'Área comercial',          '#25D366', 'shopping-cart'),
-  ('Soporte Técnico', 'soporte', 'Asistencia técnica',      '#3498DB', 'wrench'),
-  ('Medios de Pago',  'pagos',   'Validación de pagos',     '#E67E22', 'credit-card'),
-  ('Otros',           'otros',   'Consultas generales',     '#9B59B6', 'question-circle')
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
-
--- ── agents ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `agents` (
-  `id`          INT          NOT NULL AUTO_INCREMENT,
-  `username`    VARCHAR(50)  NOT NULL,
-  `password`    VARCHAR(255) NOT NULL,
-  `name`        VARCHAR(100) NOT NULL,
-  `email`       VARCHAR(150) NOT NULL,
-  `role`        ENUM('supervisor','agente') NOT NULL DEFAULT 'agente',
-  `status`      ENUM('active','inactive')   NOT NULL DEFAULT 'active',
-  `last_seen`   DATETIME     NULL,
-  `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: agents
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `agents` (
+  `id`         int(11)                      NOT NULL AUTO_INCREMENT,
+  `username`   varchar(50)                  NOT NULL,
+  `password`   varchar(255)                 NOT NULL,
+  `name`       varchar(100)                 NOT NULL,
+  `email`      varchar(150)                 NOT NULL,
+  `phone`      varchar(30)                  DEFAULT NULL,
+  `wa_alerts`  tinyint(1)                   NOT NULL DEFAULT 0,
+  `role`       enum('supervisor','agente')  NOT NULL DEFAULT 'agente',
+  `status`     enum('active','inactive')    NOT NULL DEFAULT 'active',
+  `last_seen`  datetime                     DEFAULT NULL,
+  `fcm_token`  varchar(255)                 DEFAULT NULL,
+  `created_at` datetime                     NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime                     NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_username` (`username`),
   UNIQUE KEY `uq_email`    (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `agents` (`username`, `password`, `name`, `email`, `role`, `status`) VALUES
-  ('admin',    '$2y$10$9LiCKieyP6gN2Yt8qQKIJuWMOwqMFv8WxWRNrldpZTZCwoe2rrvYG', 'Administrador',   'admin@intermediahost.co',    'supervisor', 'active'),
-  ('ventas1',  '$2y$10$hpXo4UfYc1qm0zIouHjriOiswy6j0f6JqY4P.k0GGJcxZRkiY/era', 'Asesor Ventas 1', 'ventas1@intermediahost.co',  'agente',     'active'),
-  ('ventas2',  '$2y$10$hpXo4UfYc1qm0zIouHjriOiswy6j0f6JqY4P.k0GGJcxZRkiY/era', 'Asesor Ventas 2', 'ventas2@intermediahost.co',  'agente',     'active'),
-  ('soporte1', '$2y$10$.9wxPUWUeKTsjXiE35nWuufeyu5IaDrYayL1Os0oHnrXi.cL9uS.O', 'Soporte Técnico 1','soporte1@intermediahost.co','agente',     'active'),
-  ('soporte2', '$2y$10$.9wxPUWUeKTsjXiE35nWuufeyu5IaDrYayL1Os0oHnrXi.cL9uS.O', 'Soporte Técnico 2','soporte2@intermediahost.co','agente',     'active')
-ON DUPLICATE KEY UPDATE `username` = VALUES(`username`);
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: departments
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `departments` (
+  `id`          int(11)      NOT NULL AUTO_INCREMENT,
+  `name`        varchar(100) NOT NULL,
+  `slug`        varchar(50)  NOT NULL,
+  `description` text         DEFAULT NULL,
+  `color`       varchar(7)   NOT NULL DEFAULT '#25D366',
+  `icon`        varchar(50)  NOT NULL DEFAULT 'headset',
+  `active`      tinyint(1)   NOT NULL DEFAULT 1,
+  `created_at`  datetime     NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── agent_departments ────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `agent_departments` (
-  `agent_id`      INT NOT NULL,
-  `department_id` INT NOT NULL,
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: agent_departments
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `agent_departments` (
+  `agent_id`      int(11) NOT NULL,
+  `department_id` int(11) NOT NULL,
   PRIMARY KEY (`agent_id`, `department_id`),
+  KEY `fk_ad_dept` (`department_id`),
   CONSTRAINT `fk_ad_agent` FOREIGN KEY (`agent_id`)      REFERENCES `agents`(`id`)      ON DELETE CASCADE,
   CONSTRAINT `fk_ad_dept`  FOREIGN KEY (`department_id`) REFERENCES `departments`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- admin (supervisor) → todos los departamentos
-INSERT IGNORE INTO `agent_departments` (`agent_id`, `department_id`)
-SELECT a.id, d.id FROM `agents` a, `departments` d WHERE a.username = 'admin';
-
--- ventas1 y ventas2 → departamento ventas
-INSERT IGNORE INTO `agent_departments` (`agent_id`, `department_id`)
-SELECT a.id, d.id FROM `agents` a JOIN `departments` d ON d.slug = 'ventas'
-WHERE a.username IN ('ventas1','ventas2');
-
--- soporte1 y soporte2 → departamento soporte
-INSERT IGNORE INTO `agent_departments` (`agent_id`, `department_id`)
-SELECT a.id, d.id FROM `agents` a JOIN `departments` d ON d.slug = 'soporte'
-WHERE a.username IN ('soporte1','soporte2');
-
--- ── agent_sessions ───────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `agent_sessions` (
-  `id`          INT          NOT NULL AUTO_INCREMENT,
-  `agent_id`    INT          NOT NULL,
-  `token`       VARCHAR(128) NOT NULL,
-  `ip`          VARCHAR(45)  NOT NULL,
-  `user_agent`  TEXT         NULL,
-  `expires_at`  DATETIME     NOT NULL,
-  `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: agent_sessions
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `agent_sessions` (
+  `id`         int(11)      NOT NULL AUTO_INCREMENT,
+  `agent_id`   int(11)      NOT NULL,
+  `token`      varchar(128) NOT NULL,
+  `ip`         varchar(45)  NOT NULL,
+  `user_agent` text         DEFAULT NULL,
+  `expires_at` datetime     NOT NULL,
+  `created_at` datetime     NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_token`   (`token`),
-  KEY `idx_token`   (`token`),
-  KEY `idx_expires` (`expires_at`),
+  KEY `idx_token`         (`token`),
+  KEY `idx_expires`       (`expires_at`),
+  KEY `fk_sess_agent`     (`agent_id`),
   CONSTRAINT `fk_sess_agent` FOREIGN KEY (`agent_id`) REFERENCES `agents`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── conversations ────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `conversations` (
-  `id`               INT          NOT NULL AUTO_INCREMENT,
-  `conv_key`         VARCHAR(120) NOT NULL,
-  `phone`            VARCHAR(30)  NOT NULL,
-  `contact_name`     VARCHAR(100) NOT NULL DEFAULT '',
-  `client_id`        VARCHAR(50)  NOT NULL,
-  `department_id`    INT          NULL,
-  `area_label`       VARCHAR(150) NOT NULL DEFAULT '',
-  `status`           ENUM('pending','attending','resolved','bot') NOT NULL DEFAULT 'pending',
-  `agent_id`         INT          NULL,
-  `assigned_at`      DATETIME     NULL,
-  `resolved_at`      DATETIME     NULL,
-  `resolved_by`      INT          NULL,
-  `first_contact_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_message_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `unread_count`     INT          NOT NULL DEFAULT 0,
-  `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: bot_estados
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `bot_estados` (
+  `ses_key`    varchar(120) NOT NULL,
+  `estado`     varchar(50)  NOT NULL,
+  `data`       longtext     CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]' CHECK (json_valid(`data`)),
+  `timestamp`  int(11)      NOT NULL,
+  `updated_at` datetime     NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`ses_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: conversations
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `conversations` (
+  `id`               int(11)                                       NOT NULL AUTO_INCREMENT,
+  `conv_key`         varchar(120)                                  NOT NULL,
+  `phone`            varchar(30)                                   NOT NULL,
+  `contact_name`     varchar(100)                                  NOT NULL DEFAULT '',
+  `client_id`        varchar(50)                                   NOT NULL,
+  `department_id`    int(11)                                       DEFAULT NULL,
+  `area_label`       varchar(150)                                  NOT NULL DEFAULT '',
+  `status`           enum('pending','attending','resolved','bot')  NOT NULL DEFAULT 'pending',
+  `agent_id`         int(11)                                       DEFAULT NULL,
+  `assigned_at`      datetime                                      DEFAULT NULL,
+  `resolved_at`      datetime                                      DEFAULT NULL,
+  `resolved_by`      int(11)                                       DEFAULT NULL,
+  `first_contact_at` datetime                                      NOT NULL DEFAULT current_timestamp(),
+  `last_message_at`  datetime                                      NOT NULL DEFAULT current_timestamp(),
+  `unread_count`     int(11)                                       NOT NULL DEFAULT 0,
+  `created_at`       datetime                                      NOT NULL DEFAULT current_timestamp(),
+  `updated_at`       datetime                                      NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_conv_key`   (`conv_key`),
-  KEY `idx_phone`      (`phone`),
-  KEY `idx_status`     (`status`),
-  KEY `idx_department` (`department_id`),
-  KEY `idx_agent`      (`agent_id`),
-  KEY `idx_last_msg`   (`last_message_at`),
-  CONSTRAINT `fk_conv_dept`     FOREIGN KEY (`department_id`) REFERENCES `departments`(`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_conv_agent`    FOREIGN KEY (`agent_id`)      REFERENCES `agents`(`id`)      ON DELETE SET NULL,
-  CONSTRAINT `fk_conv_resolved` FOREIGN KEY (`resolved_by`)   REFERENCES `agents`(`id`)      ON DELETE SET NULL
+  KEY `idx_phone`            (`phone`),
+  KEY `idx_status`           (`status`),
+  KEY `idx_department`       (`department_id`),
+  KEY `idx_agent`            (`agent_id`),
+  KEY `idx_last_msg`         (`last_message_at`),
+  KEY `fk_conv_resolved`     (`resolved_by`),
+  CONSTRAINT `fk_conv_agent`   FOREIGN KEY (`agent_id`)      REFERENCES `agents`(`id`)      ON DELETE SET NULL,
+  CONSTRAINT `fk_conv_dept`    FOREIGN KEY (`department_id`) REFERENCES `departments`(`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_conv_resolved` FOREIGN KEY (`resolved_by`)  REFERENCES `agents`(`id`)      ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── messages ─────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `messages` (
-  `id`              INT          NOT NULL AUTO_INCREMENT,
-  `conversation_id` INT          NOT NULL,
-  `direction`       ENUM('in','out') NOT NULL,
-  `type`            ENUM('text','image','document') NOT NULL DEFAULT 'text',
-  `content`         TEXT         NOT NULL,
-  `file_url`        VARCHAR(500) NULL,
-  `file_name`       VARCHAR(255) NULL,
-  `file_mime`       VARCHAR(100) NULL,
-  `file_size`       INT          NULL,
-  `caption`         TEXT         NULL,
-  `agent_id`        INT          NULL,
-  `wa_message_id`   VARCHAR(100) NULL,
-  `status`          ENUM('sent','failed','pending') NOT NULL DEFAULT 'pending',
-  `error_detail`    VARCHAR(500) NULL,
-  `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_conv`    (`conversation_id`),
-  KEY `idx_created` (`created_at`),
-  CONSTRAINT `fk_msg_conv`  FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_msg_agent` FOREIGN KEY (`agent_id`)        REFERENCES `agents`(`id`)        ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ── notifications ────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `notifications` (
-  `id`              INT  NOT NULL AUTO_INCREMENT,
-  `agent_id`        INT  NOT NULL,
-  `conversation_id` INT  NOT NULL,
-  `type`            ENUM('new_conversation','new_message','assigned','resolved') NOT NULL DEFAULT 'new_message',
-  `message`         TEXT NOT NULL,
-  `read_at`         DATETIME NULL,
-  `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_agent_unread` (`agent_id`, `read_at`),
-  CONSTRAINT `fk_notif_agent` FOREIGN KEY (`agent_id`)        REFERENCES `agents`(`id`)        ON DELETE CASCADE,
-  CONSTRAINT `fk_notif_conv`  FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ── login_attempts ───────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `login_attempts` (
-  `id`           INT         NOT NULL AUTO_INCREMENT,
-  `ip`           VARCHAR(45) NOT NULL,
-  `attempted_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: login_attempts
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `login_attempts` (
+  `id`           int(11)     NOT NULL AUTO_INCREMENT,
+  `ip`           varchar(45) NOT NULL,
+  `attempted_at` datetime    NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_ip_time` (`ip`, `attempted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── bot_estados (compartida con webhook) ─────────────────────
-CREATE TABLE IF NOT EXISTS `bot_estados` (
-  `ses_key`    VARCHAR(120) NOT NULL,
-  `estado`     VARCHAR(50)  NOT NULL,
-  `data`       JSON         NOT NULL DEFAULT (JSON_ARRAY()),
-  `timestamp`  INT          NOT NULL,
-  `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`ses_key`)
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: messages
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `messages` (
+  `id`              int(11)                          NOT NULL AUTO_INCREMENT,
+  `conversation_id` int(11)                          NOT NULL,
+  `direction`       enum('in','out')                 NOT NULL,
+  `type`            enum('text','image','document')  NOT NULL DEFAULT 'text',
+  `content`         text                             NOT NULL,
+  `file_url`        varchar(500)                     DEFAULT NULL,
+  `file_name`       varchar(255)                     DEFAULT NULL,
+  `file_mime`       varchar(100)                     DEFAULT NULL,
+  `file_size`       int(11)                          DEFAULT NULL,
+  `caption`         text                             DEFAULT NULL,
+  `agent_id`        int(11)                          DEFAULT NULL,
+  `wa_message_id`   varchar(100)                     DEFAULT NULL,
+  `status`          enum('sent','failed','pending')  NOT NULL DEFAULT 'pending',
+  `error_detail`    varchar(500)                     DEFAULT NULL,
+  `created_at`      datetime                         NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_conv`     (`conversation_id`),
+  KEY `idx_created`  (`created_at`),
+  KEY `fk_msg_agent` (`agent_id`),
+  CONSTRAINT `fk_msg_conv`  FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_msg_agent` FOREIGN KEY (`agent_id`)        REFERENCES `agents`(`id`)        ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: notifications
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `notifications` (
+  `id`              int(11)                                                      NOT NULL AUTO_INCREMENT,
+  `agent_id`        int(11)                                                      NOT NULL,
+  `conversation_id` int(11)                                                      NOT NULL,
+  `type`            enum('new_conversation','new_message','assigned','resolved')  NOT NULL DEFAULT 'new_message',
+  `message`         text                                                          NOT NULL,
+  `read_at`         datetime                                                      DEFAULT NULL,
+  `created_at`      datetime                                                      NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_agent_unread` (`agent_id`, `read_at`),
+  KEY `fk_notif_conv`    (`conversation_id`),
+  CONSTRAINT `fk_notif_agent` FOREIGN KEY (`agent_id`)        REFERENCES `agents`(`id`)        ON DELETE CASCADE,
+  CONSTRAINT `fk_notif_conv`  FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ──────────────────────────────────────────────────────────────
+--  TABLA: settings
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE `settings` (
+  `setting_key`   varchar(100) NOT NULL,
+  `setting_value` text         NOT NULL,
+  `description`   varchar(255) DEFAULT NULL,
+  `updated_at`    datetime     NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ──────────────────────────────────────────────────────────────
+--  DATOS INICIALES: settings
+-- ──────────────────────────────────────────────────────────────
+INSERT INTO `settings` (`setting_key`, `setting_value`, `description`) VALUES
+  ('business_hours',       '{"1":{"open":true,"start":"08:00","end":"18:00"},"2":{"open":true,"start":"08:00","end":"18:00"},"3":{"open":true,"start":"08:00","end":"18:00"},"4":{"open":true,"start":"08:00","end":"18:00"},"5":{"open":true,"start":"08:00","end":"18:00"},"6":{"open":true,"start":"08:00","end":"14:00"},"7":{"open":false,"start":"00:00","end":"00:00"}}', 'Horarios de atención por día (1=Lun … 7=Dom)'),
+  ('force_schedule',       'auto',             'Forzar horario: auto | open | closed'),
+  ('out_of_hours_message', '',                 'Mensaje personalizado fuera de horario (vacío = mensaje por defecto)'),
+  ('timezone',             'America/Bogota',   'Zona horaria usada para evaluar horarios');
 
 SET FOREIGN_KEY_CHECKS = 1;
