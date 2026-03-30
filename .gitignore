@@ -6,7 +6,8 @@ empresas/
 intermedia/
 
 # ── Credenciales y archivos sensibles ────────────────────────────────────────
-config.php
+config-general.php
+
 *.json
 !composer.json
 .installed
