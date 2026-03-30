@@ -8,39 +8,36 @@
  * ============================================================
  */
 
-// ── Includes del panel ───────────────────────────────────────
-require_once __DIR__ . '/config.php';   // WA_API_URL, WA_API_KEY, AGENT_SECRET, PANEL_URL
-require_once __DIR__ . '/db.php';       // DB::get() → BD del panel
-
 // ══════════════════════════════════════════════════════════════
-//  CONFIGURACIÓN ESPECÍFICA DEL GIMNASIO
-//  Ajustar antes de desplegar.
+//  CONFIGURACIÓN DEL PANEL (solo lo que SysGym no provee)
 // ══════════════════════════════════════════════════════════════
-define('GYM_CLIENT_ID',           'activgym');                   // client_id enviado por la API de WA
-define('GYM_NAME',                'ActivGym');                   // Nombre del gimnasio
-define('GYM_PHONE',               '573XXXXXXXXX');               // Teléfono para llamar
-define('GYM_BASE_URL',            'https://activgym.sysgym.com'); // URL base del SysGym (sin slash)
-define('GYM_DEPT_SLUG',           'atencion');                   // Slug del depto en el panel
-define('DAYS_ALLOWED_BEFORE_DUE', 5);                            // Días antes del vencimiento para habilitar pago
-define('GYM_EXCLUDE_NUMBERS',     '');                           // Números excluidos, separados por coma
+define('PANEL_URL',     'https://panelws.activgym.com.co');  // URL pública del panel de ActivGym
+define('AGENT_SECRET',  '3RYj2gjSBiusBKlHZBq2btRK77B8dPDYb8pV2SiaHykvvXD4j8v7e2kd1HIGCl9i');               // Copiar de config.php del panel de ActivGym
+define('GYM_CLIENT_ID', 'activgym');                         // Debe coincidir con client_id de la API WA
+define('GYM_DEPT_SLUG', 'atencion');                         // Slug del departamento en el panel
+define('GYM_LOG_FILE',  __DIR__ . '/webhook-activgym.log');
 
-// BD del SysGym (distinta a la BD del panel)
-define('GYM_DB_HOST', 'localhost');
-define('GYM_DB_PORT', '3306');
-define('GYM_DB_NAME', 'sysgym_activgym');
-define('GYM_DB_USER', 'usuario_sysgym');
-define('GYM_DB_PASS', 'contraseña_sysgym');
+// BD del panel de ActivGym (distinta a la BD de SysGym)
+define('PANEL_DB_HOST', 'localhost');
+define('PANEL_DB_PORT', '3306');
+define('PANEL_DB_NAME', 'activgym_whatsapp');
+define('PANEL_DB_USER', 'activgym_whatsapp');
+define('PANEL_DB_PASS', '&AaQvKiKx%w7,+]F');
 
-// ── Log ──────────────────────────────────────────────────────
-define('GYM_LOG_FILE', __DIR__ . '/webhook-activgym.log');
+// ── Config de SysGym — provee: NAME_GYM, TEL_GYM, WA_API_URL,
+//    DAYS_ALLOWED_BEFORE_DUE, EXCLUDE_WS_MENU, URLBASE, db() ─
+require_once '/home/activgym/app.activgym.com.co/inc/config.php';
+
+// La API key viene como variable desde SysGym config
+define('GYM_WA_API_KEY', $api_ws);
 
 // ── Timeouts de estado ───────────────────────────────────────
 define('MENU_TIMEOUT_SECS',   5 * 60);
 define('ASESOR_TIMEOUT_SECS', 45 * 60);
 
-// ── Horarios del gym ─────────────────────────────────────────
+// ── Horarios del gym (texto estático) ────────────────────────
 define('HORARIOS_GYM',
-    "🏋️ *" . GYM_NAME . "* — Horarios de atención\n\n" .
+    "🏋️ *" . NAME_GYM . "* — Horarios de atención\n\n" .
     "📅 *Lunes a Viernes*\n" .
     "   ⏰ 5:00 AM – 10:00 PM\n\n" .
     "📅 *Sábados*\n" .
@@ -54,40 +51,38 @@ define('HORARIOS_GYM',
 // ════════════════════════════════════════════════════════════════
 //  UTILIDADES
 // ════════════════════════════════════════════════════════════════
-function wlog($msg)
+function wlog(string $msg): void
 {
     file_put_contents(GYM_LOG_FILE, '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n", FILE_APPEND);
 }
 
-function esReset($mensaje)
+function esReset(string $mensaje): bool
 {
     return (bool)preg_match('/^\s*(0|cancelar|menu|menú|inicio|volver)\s*$/i', $mensaje);
 }
 
-function esSaludo($mensajeLower)
+function esSaludo(string $mensajeLower): bool
 {
     return (bool)preg_match('/\b(hola|hi|buenas|buenos dias|buenas tardes|buenas noches|start)\b/i', $mensajeLower);
 }
 
-function esSalidaAsesor($mensaje)
+function esSalidaAsesor(string $mensaje): bool
 {
     return (bool)preg_match('/^\s*(menu|menú)\s*$/i', $mensaje);
 }
 
-function gimnasioAbierto()
+function gimnasioAbierto(): bool
 {
     $ahora       = new DateTime('now', new DateTimeZone('America/Bogota'));
     $diaSemana   = (int)$ahora->format('N');
-    $hora        = (int)$ahora->format('G');
-    $minutos     = (int)$ahora->format('i');
-    $horaDecimal = $hora + ($minutos / 60);
+    $horaDecimal = (int)$ahora->format('G') + ((int)$ahora->format('i') / 60);
 
     if ($diaSemana === 7)     return false;
     elseif ($diaSemana === 6) return ($horaDecimal >= 7  && $horaDecimal < 14);
     else                      return ($horaDecimal >= 5  && $horaDecimal < 22);
 }
 
-function mensajeAusencia()
+function mensajeAusencia(): string
 {
     $ahora     = new DateTime('now', new DateTimeZone('America/Bogota'));
     $diaSemana = (int)$ahora->format('N');
@@ -122,20 +117,21 @@ function mensajeAusencia()
 }
 
 // ════════════════════════════════════════════════════════════════
-//  ENVÍO WS — soporta texto solo o texto + PDF
+//  ENVÍO WS — texto o texto + PDF
+//  Usa el mismo endpoint que SysGym: WA_API_URL + /send
 // ════════════════════════════════════════════════════════════════
-function wsSend($telefono, $mensaje, $pdfUrl = null)
+function wsSend(string $telefono, string $mensaje, ?string $pdfUrl = null): bool
 {
     $payload = ['phonenumber' => $telefono, 'text' => $mensaje];
     if ($pdfUrl) $payload['url'] = $pdfUrl;
 
-    $ch = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
+    $ch = curl_init(rtrim(WA_API_URL, '/') . '/send');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_HTTPHEADER     => [
-            'Authorization: Bearer ' . WA_API_KEY,
+            'Authorization: Bearer ' . GYM_WA_API_KEY,
             'Content-Type: application/json',
             'Accept: application/json',
         ],
@@ -151,14 +147,16 @@ function wsSend($telefono, $mensaje, $pdfUrl = null)
 }
 
 // ════════════════════════════════════════════════════════════════
-//  BD DEL GIMNASIO (SysGym — separada del panel)
+//  BD DEL PANEL (bot_estados, conversations, agents, departments)
+//  Separada de la BD de SysGym que maneja db()
 // ════════════════════════════════════════════════════════════════
-function gymDb(): PDO
+function panelDb(): PDO
 {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = 'mysql:host=' . GYM_DB_HOST . ';port=' . GYM_DB_PORT . ';dbname=' . GYM_DB_NAME . ';charset=utf8mb4';
-        $pdo = new PDO($dsn, GYM_DB_USER, GYM_DB_PASS, [
+        $dsn = 'mysql:host=' . PANEL_DB_HOST . ';port=' . PANEL_DB_PORT
+             . ';dbname=' . PANEL_DB_NAME . ';charset=utf8mb4';
+        $pdo = new PDO($dsn, PANEL_DB_USER, PANEL_DB_PASS, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
@@ -172,8 +170,7 @@ function gymDb(): PDO
 function obtenerEstado(string $sesKey): ?array
 {
     try {
-        $pdo  = DB::get();
-        $stmt = $pdo->prepare('SELECT estado, data, timestamp FROM bot_estados WHERE ses_key = ? LIMIT 1');
+        $stmt = panelDb()->prepare('SELECT estado, data, timestamp FROM bot_estados WHERE ses_key = ? LIMIT 1');
         $stmt->execute([$sesKey]);
         $row  = $stmt->fetch();
 
@@ -188,7 +185,7 @@ function obtenerEstado(string $sesKey): ?array
                 : MENU_TIMEOUT_SECS);
 
         if ($elapsed > $limite) {
-            $pdo->prepare('DELETE FROM bot_estados WHERE ses_key = ?')->execute([$sesKey]);
+            panelDb()->prepare('DELETE FROM bot_estados WHERE ses_key = ?')->execute([$sesKey]);
             wlog("Estado expirado: $sesKey ($estado)");
             return null;
         }
@@ -205,7 +202,7 @@ function obtenerEstado(string $sesKey): ?array
 function guardarEstado(string $sesKey, ?string $nuevoEstado, array $data = []): void
 {
     try {
-        $pdo = DB::get();
+        $pdo = panelDb();
         if ($nuevoEstado === null) {
             $pdo->prepare('DELETE FROM bot_estados WHERE ses_key = ?')->execute([$sesKey]);
             wlog("Estado borrado: $sesKey");
@@ -235,8 +232,8 @@ function resetMenu(string $sesKey, string $nombre): string
 // ════════════════════════════════════════════════════════════════
 
 /**
- * Notifica al panel (incoming.php) para registrar la conversación
- * y notificar a los agentes del departamento.
+ * Notifica al panel cuando hay un nuevo mensaje del cliente.
+ * Crea/actualiza la conversación y la muestra a los agentes.
  */
 function notifyPanel(string $phone, string $name, string $message, string $messageType, string $area): void
 {
@@ -271,22 +268,39 @@ function notifyPanel(string $phone, string $name, string $message, string $messa
 }
 
 /**
- * Devuelve la conversación al bot en el panel (cuando el cliente escribe "Menú"
- * desde el modo asesor, o cuando el timeout de asesor expira).
+ * Devuelve la conversación al bot en el panel
+ * (cuando el cliente escribe "Menú" o el timeout del asesor expira).
  */
 function panelSetBot(string $phone): void
 {
     try {
-        $pdo     = DB::get();
         $convKey = GYM_CLIENT_ID . '_' . $phone;
-        $pdo->prepare(
+        panelDb()->prepare(
             "UPDATE conversations
              SET status = 'bot', agent_id = NULL, unread_count = 0, updated_at = NOW()
              WHERE conv_key = ? AND status IN ('pending','attending')"
         )->execute([$convKey]);
-        wlog("panelSetBot: conv_key=$convKey → bot");
+        wlog("panelSetBot: $convKey → bot");
     } catch (PDOException $e) {
         wlog("panelSetBot DB error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Verifica si el agente del panel ya resolvió o liberó la conversación
+ * (el panel devolvió control al bot sin que el cliente escribiera "Menú").
+ */
+function panelDevolvioAlBot(string $phone): bool
+{
+    try {
+        $convKey = GYM_CLIENT_ID . '_' . $phone;
+        $stmt    = panelDb()->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
+        $stmt->execute([$convKey]);
+        $row = $stmt->fetch();
+        return $row && in_array($row['status'], ['bot', 'resolved']);
+    } catch (PDOException $e) {
+        wlog("panelDevolvioAlBot DB error: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -296,7 +310,7 @@ function panelSetBot(string $phone): void
 function notificarAsesor(string $nombreCliente, string $from, string $motivo): void
 {
     $msg =
-        "🔔 *Alerta de atención — " . GYM_NAME . "*\n\n" .
+        "🔔 *Alerta de atención — " . NAME_GYM . "*\n\n" .
         "El cliente *{$nombreCliente}* solicita atención por WhatsApp.\n\n" .
         "📌 Motivo: {$motivo}\n" .
         "📞 Número: {$from}\n\n" .
@@ -304,8 +318,7 @@ function notificarAsesor(string $nombreCliente, string $from, string $motivo): v
 
     $numeros = [];
     try {
-        $pdo  = DB::get();
-        $stmt = $pdo->prepare(
+        $stmt = panelDb()->prepare(
             "SELECT DISTINCT a.phone
              FROM agents a
              JOIN agent_departments ad ON ad.agent_id = a.id
@@ -326,45 +339,24 @@ function notificarAsesor(string $nombreCliente, string $from, string $motivo): v
         return;
     }
 
+    $endpoint = rtrim(WA_API_URL, '/') . '/send';
     foreach ($numeros as $numero) {
-        $ch = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
+        $ch = curl_init($endpoint);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_HTTPHEADER     => [
-                'Authorization: Bearer ' . WA_API_KEY,
+                'Authorization: Bearer ' . GYM_WA_API_KEY,
                 'Content-Type: application/json',
                 'Accept: application/json',
             ],
-            CURLOPT_POSTFIELDS => json_encode([
-                'phonenumber' => $numero,
-                'text'        => $msg,
-            ], JSON_UNESCAPED_UNICODE),
+            CURLOPT_POSTFIELDS => json_encode(['phonenumber' => $numero, 'text' => $msg], JSON_UNESCAPED_UNICODE),
         ]);
         curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         wlog("notificarAsesor => $numero HTTP=$code motivo=$motivo cliente=$nombreCliente ($from)");
-    }
-}
-
-/**
- * Verifica si el panel devolvió el control al bot.
- * Útil cuando el agente resuelve/libera la conversación sin que el cliente escriba "Menú".
- */
-function panelDevolvioAlBot(string $phone): bool
-{
-    try {
-        $pdo     = DB::get();
-        $convKey = GYM_CLIENT_ID . '_' . $phone;
-        $stmt    = $pdo->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
-        $stmt->execute([$convKey]);
-        $row = $stmt->fetch();
-        return $row && in_array($row['status'], ['bot', 'resolved']);
-    } catch (PDOException $e) {
-        wlog("panelDevolvioAlBot DB error: " . $e->getMessage());
-        return false;
     }
 }
 
@@ -374,8 +366,8 @@ function panelDevolvioAlBot(string $phone): bool
 function menuPrincipal(string $nombre = ''): string
 {
     $saludo = $nombre
-        ? "¡Hola *{$nombre}*! 👋 Bienvenido a *" . GYM_NAME . "*\n\n"
-        : "👋 ¡Bienvenido a *" . GYM_NAME . "*!\n\n";
+        ? "¡Hola *{$nombre}*! 👋 Bienvenido a *" . NAME_GYM . "*\n\n"
+        : "👋 ¡Bienvenido a *" . NAME_GYM . "*!\n\n";
 
     return $saludo .
         "Estamos aquí para ayudarte a lograr tus metas. ¿En qué te podemos ayudar hoy?\n\n" .
@@ -389,12 +381,12 @@ function menuPrincipal(string $nombre = ''): string
 }
 
 // ════════════════════════════════════════════════════════════════
-//  CONSULTAS BD DEL GIMNASIO
+//  CONSULTAS BD DEL GIMNASIO — usa db() de SysGym config
 // ════════════════════════════════════════════════════════════════
 function planesDisponibles(): string
 {
     try {
-        $rows = gymDb()->query(
+        $rows = db()->query(
             "SELECT nombre, precio FROM planes
               WHERE estado='activo' AND borrado=0
               HAVING precio > 0
@@ -405,7 +397,7 @@ function planesDisponibles(): string
             return "⚠️ No hay planes disponibles en este momento. Escríbenos *Menú* para volver.";
         }
 
-        $txt = "💪 *NUESTROS PLANES — " . GYM_NAME . "*\n\n";
+        $txt = "💪 *NUESTROS PLANES — " . NAME_GYM . "*\n\n";
         foreach ($rows as $p) {
             if ((float)$p['precio'] <= 0) continue;
             $precio = '$' . number_format((float)$p['precio'], 0, ',', '.');
@@ -424,7 +416,7 @@ function planesDisponibles(): string
 function consultarPlanCliente(string $doc): string
 {
     try {
-        $st = gymDb()->prepare(
+        $st = db()->prepare(
             "SELECT c.nombres, c.apellidos, c.vencimiento_plan, c.congelado,
                     p.nombre AS plan_nombre, p.precio AS plan_precio
                FROM clientes c LEFT JOIN planes p ON p.id = c.plan
@@ -484,7 +476,7 @@ function consultarPlanCliente(string $doc): string
 function gestionarPago(string $doc): string
 {
     try {
-        $st = gymDb()->prepare(
+        $st = db()->prepare(
             "SELECT c.nombres, c.apellidos, c.vencimiento_plan, c.congelado
                FROM clientes c WHERE c.identificacion = :doc AND c.borrado = 0 LIMIT 1"
         );
@@ -513,7 +505,7 @@ function gestionarPago(string $doc): string
         $dias   = DAYS_ALLOWED_BEFORE_DUE;
 
         if ($diff <= $dias) {
-            $link = rtrim(GYM_BASE_URL, '/') . "/pay/?doc={$doc}";
+            $link = rtrim(URLBASE, '/') . "/pay/?doc={$doc}";
             return
                 "✅ ¡Hola *{$nombre}*! Tu pago ya está disponible.\n\n" .
                 "🔗 *Enlace de pago:*\n{$link}\n\n" .
@@ -541,7 +533,7 @@ function gestionarPago(string $doc): string
 function generarCertificado(string $doc, string $telefono): array
 {
     try {
-        $st = gymDb()->prepare(
+        $st = db()->prepare(
             "SELECT id, nombres, apellidos, congelado, vencimiento_plan
                FROM clientes WHERE identificacion = :doc AND borrado = 0 LIMIT 1"
         );
@@ -579,12 +571,12 @@ function generarCertificado(string $doc, string $telefono): array
             ];
         }
 
-        $clienteId  = $c['id'];
-        $nombre     = trim($c['nombres'] . ' ' . $c['apellidos']);
-        $baseUrl    = rtrim(GYM_BASE_URL, '/');
-        $pdfSrcUrl  = $baseUrl . '/pdf/?type=cert&id=' . $clienteId;
+        $clienteId = $c['id'];
+        $nombre    = trim($c['nombres'] . ' ' . $c['apellidos']);
+        $baseUrl   = rtrim(URLBASE, '/');
+        $pdfSrcUrl = $baseUrl . '/pdf/?type=cert&id=' . $clienteId;
 
-        $tempDir    = __DIR__ . '/uploads/certs_activgym/';
+        $tempDir = __DIR__ . '/uploads/certs_activgym/';
         if (!is_dir($tempDir)) mkdir($tempDir, 0755, true);
 
         $pdfFilename = 'cert_' . $clienteId . '_' . time() . '.pdf';
@@ -604,7 +596,7 @@ function generarCertificado(string $doc, string $telefono): array
         $pdfError   = curl_error($ch2);
         curl_close($ch2);
 
-        wlog("CERT download: url=$pdfSrcUrl HTTP=$pdfCode err=$pdfError bytes=" . strlen($pdfContent ?: ''));
+        wlog("CERT download: HTTP=$pdfCode err=$pdfError bytes=" . strlen($pdfContent ?: ''));
 
         if ($pdfContent === false || $pdfCode !== 200 || strlen($pdfContent) < 100) {
             return [
@@ -642,13 +634,13 @@ wlog("RECIBIDO: $rawInput");
 $data = json_decode($rawInput, true);
 if (!$data) { http_response_code(400); exit('Invalid JSON'); }
 
-$from        = trim($data['from']      ?? '');
-$jid         = trim($data['jid']       ?? '');
-$mensaje     = trim($data['message']   ?? '');
-$nombre      = $data['pushName']        ?? '';
-$clientId    = $data['client_id']       ?? GYM_CLIENT_ID;
-$messageId   = $data['messageId']       ?? '';
-$messageType = $data['messageType']     ?? 'text';
+$from        = trim($data['from']        ?? '');
+$jid         = trim($data['jid']         ?? '');
+$mensaje     = trim($data['message']     ?? '');
+$nombre      = $data['pushName']          ?? '';
+$clientId    = $data['client_id']         ?? GYM_CLIENT_ID;
+$messageId   = $data['messageId']         ?? '';
+$messageType = $data['messageType']       ?? 'text';
 
 // Solo usar jid si es @s.whatsapp.net
 $telefono = (strpos($jid, '@s.whatsapp.net') !== false) ? $jid : $from;
@@ -656,14 +648,11 @@ $telefono = (strpos($jid, '@s.whatsapp.net') !== false) ? $jid : $from;
 // Sesión siempre basada en número real
 $sesKey = $from . '_' . GYM_CLIENT_ID;
 
-// ── Anti-duplicados ───────────────────────────────────────────
+// ── Anti-duplicados (usando bot_estados del panel) ────────────
 if (!empty($messageId)) {
     try {
-        $pdo  = DB::get();
-        $stmt = $pdo->prepare('SELECT 1 FROM bot_estados WHERE ses_key = ? LIMIT 1');
-        // Usamos un key especial para duplicados
         $dupKey = '_dup_' . $messageId;
-        $stmt   = $pdo->prepare('SELECT timestamp FROM bot_estados WHERE ses_key = ? LIMIT 1');
+        $stmt   = panelDb()->prepare('SELECT timestamp FROM bot_estados WHERE ses_key = ? LIMIT 1');
         $stmt->execute([$dupKey]);
         $dup = $stmt->fetch();
 
@@ -671,8 +660,7 @@ if (!empty($messageId)) {
             wlog("Duplicado ignorado: $messageId");
             http_response_code(200); exit('OK');
         }
-        // Registrar
-        $pdo->prepare(
+        panelDb()->prepare(
             'INSERT INTO bot_estados (ses_key, estado, data, timestamp) VALUES (?,?,?,?)
              ON DUPLICATE KEY UPDATE timestamp=VALUES(timestamp)'
         )->execute([$dupKey, '_dup', '[]', time()]);
@@ -681,10 +669,10 @@ if (!empty($messageId)) {
     }
 }
 
-// ── Números excluidos ─────────────────────────────────────────
-if (!empty(GYM_EXCLUDE_NUMBERS)) {
-    $excluidos  = array_map('trim', explode(',', GYM_EXCLUDE_NUMBERS));
-    $jidLimpio  = explode('@', $jid)[0];
+// ── Números excluidos (viene de EXCLUDE_WS_MENU en SysGym config) ─
+if (!empty(EXCLUDE_WS_MENU)) {
+    $excluidos = array_map('trim', explode(',', EXCLUDE_WS_MENU));
+    $jidLimpio = explode('@', $jid)[0];
     if (in_array($from, $excluidos) || in_array($jidLimpio, $excluidos)) {
         wlog("[$clientId] Excluido: $from");
         http_response_code(200); exit('OK');
@@ -710,8 +698,9 @@ if (empty($mensaje)) {
     $estadoTemp  = $sesDataTemp['estado'] ?? null;
 
     if ($estadoTemp === 'asesor') {
-        wlog("[$clientId] Multimedia con asesor activo — notificando panel");
+        // Reenviar al panel para que el agente lo vea
         notifyPanel($from, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
+        wlog("[$clientId] Multimedia con asesor activo — notificando panel");
         http_response_code(200); exit('OK');
     }
 
@@ -739,14 +728,12 @@ if (empty($mensaje)) {
 }
 
 $mensajeLower = mb_strtolower($mensaje);
-
 wlog("[$clientId] $telefono ($nombre) → \"$mensaje\"");
 
-// Leer estado previo antes de verificar expiración
-$sesDataRaw   = null;
+// Estado previo (antes de verificar expiración)
 $estadoPrevio = null;
 try {
-    $stmt = DB::get()->prepare('SELECT estado FROM bot_estados WHERE ses_key = ? LIMIT 1');
+    $stmt = panelDb()->prepare('SELECT estado FROM bot_estados WHERE ses_key = ? LIMIT 1');
     $stmt->execute([$sesKey]);
     $row          = $stmt->fetch();
     $estadoPrevio = $row ? $row['estado'] : null;
@@ -762,19 +749,20 @@ $pdfUrl    = null;
 // ── A. Estado ASESOR activo ───────────────────────────────────
 if ($estado === 'asesor') {
 
-    // Verificar si el panel ya devolvió el control al bot
     if (panelDevolvioAlBot($from)) {
+        // El agente resolvió/liberó desde el panel
         wlog("[$clientId] Panel devolvió control al bot — reseteando estado");
         guardarEstado($sesKey, null);
         $respuesta = resetMenu($sesKey, $nombre);
 
     } elseif (esSalidaAsesor($mensaje)) {
+        // Cliente escribió "Menú"
         wlog("[$clientId] Salida de asesor por MENÚ");
         panelSetBot($from);
         $respuesta = resetMenu($sesKey, $nombre);
 
     } else {
-        // Reenviar mensaje al panel para que el agente lo vea
+        // Mensaje normal con asesor activo → reenviar al panel y silenciar bot
         notifyPanel($from, $nombre, $mensaje, $messageType, 'Atención al Cliente');
         wlog("[$clientId] Silenciado — asesor activo");
         http_response_code(200); exit('OK');
@@ -785,8 +773,8 @@ if ($estado === 'asesor') {
     if (gimnasioAbierto()) {
         $respuesta =
             "🧑‍💼 *¡Conectando con un asesor!*\n\n" .
-            "En breve alguien de nuestro equipo en *" . GYM_NAME . "* te atenderá personalmente.\n\n" .
-            "📞 También puedes llamarnos al: *" . GYM_PHONE . "*\n\n" .
+            "En breve alguien de nuestro equipo en *" . NAME_GYM . "* te atenderá personalmente.\n\n" .
+            "📞 También puedes llamarnos al: *" . TEL_GYM . "*\n\n" .
             "_Por favor espera, no es necesario escribir más._ 😊\n\n" .
             "Escribe *Menú* si deseas volver al menú principal.";
         guardarEstado($sesKey, 'asesor', ['solicitado' => time()]);
@@ -851,8 +839,8 @@ if ($estado === 'asesor') {
             if (gimnasioAbierto()) {
                 $respuesta =
                     "🧑‍💼 *¡Conectando con un asesor!*\n\n" .
-                    "En breve alguien de nuestro equipo en *" . GYM_NAME . "* te atenderá personalmente.\n\n" .
-                    "📞 También puedes llamarnos al: *" . GYM_PHONE . "*\n\n" .
+                    "En breve alguien de nuestro equipo en *" . NAME_GYM . "* te atenderá personalmente.\n\n" .
+                    "📞 También puedes llamarnos al: *" . TEL_GYM . "*\n\n" .
                     "_Por favor espera, no es necesario escribir más._ 😊\n\n" .
                     "Escribe *Menú* si deseas volver al menú principal.";
                 guardarEstado($sesKey, 'asesor', ['solicitado' => time()]);
@@ -910,8 +898,7 @@ if ($estado === 'asesor') {
         guardarEstado($sesKey, 'menu_principal');
 
         if ($pdfUrl) {
-            // 1) Enviar PDF adjunto
-            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
+            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/send');
             curl_setopt_array($chPdf, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_POST           => true,
@@ -920,8 +907,8 @@ if ($estado === 'asesor') {
                     'text'        => '📎 Certificado de Inscripción',
                     'url'         => $pdfUrl,
                 ], JSON_UNESCAPED_UNICODE),
-                CURLOPT_HTTPHEADER     => [
-                    'Authorization: Bearer ' . WA_API_KEY,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer ' . GYM_WA_API_KEY,
                     'Content-Type: application/json',
                     'Accept: application/json',
                 ],
@@ -931,7 +918,6 @@ if ($estado === 'asesor') {
             curl_close($chPdf);
             $okPdf = ($codePdf >= 200 && $codePdf < 300 && !empty(json_decode($respPdf, true)['success']));
             wlog("[$clientId] CERT send HTTP=$codePdf ok=" . ($okPdf ? 'SI' : 'NO'));
-            // 2) Enviar texto por separado
             wsSend($telefono, $textoCert);
         } else {
             wsSend($telefono, $textoCert);
