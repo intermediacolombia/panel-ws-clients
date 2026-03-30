@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS `agent_sessions` (
 CREATE TABLE IF NOT EXISTS `bot_estados` (
   `ses_key`    varchar(120) NOT NULL,
   `estado`     varchar(50)  NOT NULL,
-  `data`       longtext     CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '[]' CHECK (json_valid(`data`)),
+  `data`        longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`data`)),
   `timestamp`  int(11)      NOT NULL,
   `updated_at` datetime     NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`ses_key`)
