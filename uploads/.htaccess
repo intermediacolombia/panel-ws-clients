@@ -1,0 +1,24 @@
+# Seguridad para el directorio de uploads
+# Deshabilitar listado de directorio
+Options -Indexes
+
+# Deshabilitar ejecución de PHP
+php_flag engine off
+
+# Bloquear archivos ejecutables
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|pl|py|jsp|asp|aspx|sh|cgi|exe|bat|cmd|htaccess)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Permitir solo tipos de archivo seguros
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt|zip)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Cabeceras de seguridad para archivos servidos
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Content-Disposition "attachment"
+</IfModule>
