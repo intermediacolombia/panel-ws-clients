@@ -835,10 +835,37 @@ $clientId    = $data['client_id']         ?? GYM_CLIENT_ID;
 $messageId   = $data['messageId']         ?? '';
 $messageType = $data['messageType']       ?? 'text';
 
-// Solo usar jid si es @s.whatsapp.net
-$telefono = (strpos($jid, '@s.whatsapp.net') !== false) ? $jid : $from;
+// Para ENVIAR (bot y panel): conservar el jid tal como viene.
+// La API acepta @s.whatsapp.net y @lid. Solo usar $from si no hay jid.
+$telefono = !empty($jid) ? $jid : $from;
 
-// Sesión siempre basada en número real
+// Guardar from original para decidir qué phone usar en el panel
+$fromOriginal = $from;
+
+// Normalizar $from a número limpio (solo para sesión y clave interna).
+// Prioridad: número del @s.whatsapp.net > quitar @lid de from > from tal cual.
+if (!empty($jid) && strpos($jid, '@s.whatsapp.net') !== false) {
+    $from = explode('@', $jid)[0];       // número real desde jid confiable
+} elseif (strpos($from, '@') !== false) {
+    $from = explode('@', $from)[0];      // quitar sufijo @lid u otro
+}
+$from = preg_replace('/[^0-9+]/', '', $from);
+// Fallback si from llegó vacío: usar parte numérica del jid como identificador de sesión
+if (empty($from) && !empty($jid)) {
+    $from = preg_replace('/[^0-9+]/', '', explode('@', $jid)[0]);
+}
+
+// Phone que se envía al panel para guardar en conversations.phone y poder responder:
+// - Si from original era un número real (sin @): usar el número limpio
+// - Si from era vacío o tenía @lid: usar el jid completo (ej: "280...@lid")
+//   para que apiSend pueda enviarlo correctamente cuando el agente responda
+$phoneForPanel = ($fromOriginal !== '' && strpos($fromOriginal, '@') === false)
+    ? $from       // número real normalizado
+    : $telefono;  // jid completo (@lid o @s.whatsapp.net)
+
+wlog("[$clientId] from normalizado: $from  |  jid: $jid  |  telefono envío: $telefono  |  phone panel: $phoneForPanel");
+
+// Sesión siempre basada en número normalizado para evitar duplicados LID vs número
 $sesKey = $from . '_' . GYM_CLIENT_ID;
 
 // ── Anti-duplicados ──────────────────────────────────────────
@@ -878,7 +905,7 @@ if (!empty(EXCLUDE_WS_MENU)) {
     }
 }
 
-if (empty($telefono)) { http_response_code(200); exit('OK'); }
+if (empty($from)) { http_response_code(200); exit('OK'); }
 
 // ── Mensaje vacío (multimedia, sticker, audio, etc.) ──────────
 if (empty($mensaje)) {
@@ -891,7 +918,7 @@ if (empty($mensaje)) {
     $estadoTemp  = $sesDataTemp['estado'] ?? null;
 
     if ($estadoTemp === 'asesor') {
-        notifyPanel($from, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
+        notifyPanel($phoneForPanel, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
         wlog("[$clientId] Multimedia con asesor activo — notificando panel");
         http_response_code(200); exit('OK');
     }
@@ -952,7 +979,7 @@ if ($estado === 'asesor') {
         $respuesta = resetMenu($sesKey, $nombre);
 
     } else {
-        notifyPanel($from, $nombre, $mensaje, $messageType, 'Atención al Cliente');
+        notifyPanel($phoneForPanel, $nombre, $mensaje, $messageType, 'Atención al Cliente');
         wlog("[$clientId] Silenciado — asesor activo");
         http_response_code(200); exit('OK');
     }
@@ -967,7 +994,7 @@ if ($estado === 'asesor') {
             "_Por favor espera, no es necesario escribir más._ 😊\n\n" .
             "Escribe *Menú* si deseas volver al menú principal.";
         guardarEstado($sesKey, 'asesor', ['solicitado' => time()]);
-        notifyPanel($from, $nombre, $mensaje, 'text', 'Atención al Cliente');
+        notifyPanel($phoneForPanel, $nombre, $mensaje, 'text', 'Atención al Cliente');
         notificarAsesor($nombre, $from, "Solicitud directa de asesor");
         wlog("[$clientId] ASESOR por palabra clave: $nombre ($telefono)");
     } else {
@@ -1033,7 +1060,7 @@ if ($estado === 'asesor') {
                     "_Por favor espera, no es necesario escribir más._ 😊\n\n" .
                     "Escribe *Menú* si deseas volver al menú principal.";
                 guardarEstado($sesKey, 'asesor', ['solicitado' => time()]);
-                notifyPanel($from, $nombre, $mensaje, 'text', 'Atención al Cliente');
+                notifyPanel($phoneForPanel, $nombre, $mensaje, 'text', 'Atención al Cliente');
                 notificarAsesor($nombre, $from, "Opción 6 — Solicitud de asesor");
                 wlog("[$clientId] ASESOR SOLICITADO: $nombre ($telefono)");
             } else {
