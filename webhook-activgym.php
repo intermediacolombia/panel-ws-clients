@@ -18,11 +18,11 @@ define('GYM_DEPT_SLUG', 'atencion');                         // Slug del departa
 define('GYM_LOG_FILE',  __DIR__ . '/webhook-activgym.log');
 
 // BD del panel de ActivGym (distinta a la BD de SysGym)
-define('PANEL_DB_HOST', 'localhost');
+define('PANEL_DB_HOST', 'intermediahost.co');
 define('PANEL_DB_PORT', '3306');
-define('PANEL_DB_NAME', 'activgym_whatsapp');
-define('PANEL_DB_USER', 'activgym_whatsapp');
-define('PANEL_DB_PASS', '&AaQvKiKx%w7,+]F');
+define('PANEL_DB_NAME', 'inte_whatsapp_activ');
+define('PANEL_DB_USER', 'inte_whatsapp_activ');
+define('PANEL_DB_PASS', 'CCJRWNjuKxDR$J4Y');
 
 // ── Config de SysGym — provee: NAME_GYM, TEL_GYM, WA_API_URL,
 //    DAYS_ALLOWED_BEFORE_DUE, EXCLUDE_WS_MENU, URLBASE, db() ─
