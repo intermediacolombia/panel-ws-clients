@@ -11,7 +11,7 @@
 // ══════════════════════════════════════════════════════════════
 //  CONFIGURACIÓN DEL PANEL (solo lo que SysGym no provee)
 // ══════════════════════════════════════════════════════════════
-define('PANEL_URL',     'https://panelws.activgym.com.co');  // URL pública del panel de ActivGym
+define('PANEL_URL',     'https://whatsapp.activgym.com.co');  // URL pública del panel de ActivGym
 define('AGENT_SECRET',  '3RYj2gjSBiusBKlHZBq2btRK77B8dPDYb8pV2SiaHykvvXD4j8v7e2kd1HIGCl9i');               // Copiar de config.php del panel de ActivGym
 define('GYM_CLIENT_ID', 'activgym');                         // Debe coincidir con client_id de la API WA
 define('GYM_DEPT_SLUG', 'atencion');                         // Slug del departamento en el panel
@@ -22,7 +22,7 @@ define('PANEL_DB_HOST', 'intermediahost.co');
 define('PANEL_DB_PORT', '3306');
 define('PANEL_DB_NAME', 'inte_whatsapp_activ');
 define('PANEL_DB_USER', 'inte_whatsapp_activ');
-define('PANEL_DB_PASS', 'CCJRWNjuKxDR$J4Y');
+define('PANEL_DB_PASS', '+GLMoLvFhcn-ssvq');
 
 // ── Config de SysGym — provee: NAME_GYM, TEL_GYM, WA_API_URL,
 //    DAYS_ALLOWED_BEFORE_DUE, EXCLUDE_WS_MENU, URLBASE, db() ─
