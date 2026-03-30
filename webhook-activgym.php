@@ -5,6 +5,7 @@
  *  Bot idéntico al original + integración con Panel de Agentes.
  *  Estados: MySQL bot_estados (en lugar de JSON file).
  *  Asesor:  Panel controla la conversación (incoming.php).
+ *  Horarios: Dinámicos desde BD del panel (settings)
  * ============================================================
  */
 
@@ -35,8 +36,8 @@ define('GYM_WA_API_KEY', $api_ws);
 define('MENU_TIMEOUT_SECS',   5 * 60);
 define('ASESOR_TIMEOUT_SECS', 45 * 60);
 
-// ── Horarios del gym (texto estático) ────────────────────────
-define('HORARIOS_GYM',
+// ── Horarios del gym (por defecto, se puede sobreescribir desde BD) ──
+define('HORARIOS_GYM_DEFAULT',
     "🏋️ *" . NAME_GYM . "* — Horarios de atención\n\n" .
     "📅 *Lunes a Viernes*\n" .
     "   ⏰ 5:00 AM – 10:00 PM\n\n" .
@@ -71,7 +72,80 @@ function esSalidaAsesor(string $mensaje): bool
     return (bool)preg_match('/^\s*(menu|menú)\s*$/i', $mensaje);
 }
 
+// ════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN DE HORARIOS DESDE BD (tabla settings)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Lee todos los settings de la BD con caché estático por request.
+ */
+function getPanelSettings(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    try {
+        $pdo = panelDb();
+        $stmt = $pdo->query('SELECT setting_key, setting_value FROM settings');
+        $rows = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $cache = is_array($rows) ? $rows : [];
+    } catch (PDOException $e) {
+        wlog("DB error getPanelSettings: " . $e->getMessage());
+        $cache = [];
+    }
+    return $cache;
+}
+
+/**
+ * Verifica si el gimnasio está abierto según horarios configurados en BD.
+ * Si no hay configuración, usa valores por defecto.
+ */
 function gimnasioAbierto(): bool
+{
+    $settings = getPanelSettings();
+
+    // 1. ¿Hay forzado manual?
+    $force = $settings['force_schedule'] ?? 'auto';
+    if ($force === 'open')   return true;
+    if ($force === 'closed') return false;
+
+    // 2. Leer horarios configurados
+    $hoursJson = $settings['business_hours'] ?? null;
+    $tz        = $settings['timezone']       ?? 'America/Bogota';
+
+    if (!$hoursJson) {
+        wlog("Settings: business_hours no encontrado, usando fallback hardcodeado");
+        return _gimnasioAbiertoFallback();
+    }
+
+    $hours = json_decode($hoursJson, true);
+    if (!is_array($hours)) {
+        wlog("Settings: business_hours JSON inválido, usando fallback");
+        return _gimnasioAbiertoFallback();
+    }
+
+    try {
+        $ahora = new DateTime('now', new DateTimeZone($tz));
+    } catch (Exception $e) {
+        $ahora = new DateTime('now', new DateTimeZone('America/Bogota'));
+    }
+
+    $dia  = $ahora->format('N'); // 1=Lun … 7=Dom
+    $hora = $ahora->format('H:i');
+
+    $diaConfig = $hours[$dia] ?? null;
+    if (!$diaConfig || empty($diaConfig['open'])) {
+        return false;
+    }
+
+    return $hora >= $diaConfig['start'] && $hora < $diaConfig['end'];
+}
+
+/**
+ * Fallback si la tabla settings no existe o está vacía
+ * (valores originales de ActivGym)
+ */
+function _gimnasioAbiertoFallback(): bool
 {
     $ahora       = new DateTime('now', new DateTimeZone('America/Bogota'));
     $diaSemana   = (int)$ahora->format('N');
@@ -82,7 +156,52 @@ function gimnasioAbierto(): bool
     else                      return ($horaDecimal >= 5  && $horaDecimal < 22);
 }
 
-function mensajeAusencia(): string
+/**
+ * Retorna texto amigable del próximo momento de apertura
+ * basado en los horarios configurados en la BD.
+ */
+function cuandoAbreGimnasio(): string
+{
+    $settings  = getPanelSettings();
+    $hoursJson = $settings['business_hours'] ?? null;
+    $tz        = $settings['timezone']       ?? 'America/Bogota';
+
+    if (!$hoursJson) return _cuandoAbreFallback();
+
+    $hours = json_decode($hoursJson, true);
+    if (!is_array($hours)) return _cuandoAbreFallback();
+
+    try {
+        $ahora = new DateTime('now', new DateTimeZone($tz));
+    } catch (Exception $e) {
+        $ahora = new DateTime('now', new DateTimeZone('America/Bogota'));
+    }
+
+    $nombresDia = [1=>'lunes',2=>'martes',3=>'miércoles',4=>'jueves',5=>'viernes',6=>'sábado',7=>'domingo'];
+
+    // Buscar el próximo slot abierto en los próximos 7 días
+    for ($i = 1; $i <= 7; $i++) {
+        $check     = clone $ahora;
+        $check->modify("+{$i} day");
+        $dia       = (int)$check->format('N');
+        $diaConfig = $hours[$dia] ?? null;
+
+        if ($diaConfig && !empty($diaConfig['open'])) {
+            $start  = $diaConfig['start'] ?? '08:00';
+            $startF = ltrim($start, '0') ?: '0';   // "08:00" → "8:00"
+            $nombre = $nombresDia[$dia] ?? '';
+
+            if ($i === 1) {
+                return "mañana *{$nombre} desde las {$startF}*";
+            }
+            return "el *{$nombre} desde las {$startF}*";
+        }
+    }
+
+    return "próximamente";
+}
+
+function _cuandoAbreFallback(): string
 {
     $ahora     = new DateTime('now', new DateTimeZone('America/Bogota'));
     $diaSemana = (int)$ahora->format('N');
@@ -104,11 +223,65 @@ function mensajeAusencia(): string
             else                      $cuando = "mañana *desde las 5:00 AM*";
         }
     }
+    return $cuando;
+}
 
+/**
+ * Genera el texto de horario para los mensajes de ausencia,
+ * basado en la configuración de la BD.
+ */
+function horarioGymTexto(): string
+{
+    $settings  = getPanelSettings();
+    $hoursJson = $settings['business_hours'] ?? null;
+
+    if (!$hoursJson) return _horarioTextoFallback();
+
+    $hours = json_decode($hoursJson, true);
+    if (!is_array($hours)) return _horarioTextoFallback();
+
+    $nombresDia = [1=>'Lunes',2=>'Martes',3=>'Miércoles',4=>'Jueves',5=>'Viernes',6=>'Sábado',7=>'Domingo'];
+    $lineas     = [];
+
+    foreach ($hours as $d => $cfg) {
+        if (!empty($cfg['open'])) {
+            $start  = $cfg['start'] ?? '08:00';
+            $end    = $cfg['end']   ?? '18:00';
+            $nombre = $nombresDia[(int)$d] ?? "Día $d";
+            $lineas[] = "   {$nombre}: {$start} – {$end}";
+        }
+    }
+
+    if (empty($lineas)) return _horarioTextoFallback();
+
+    return "🕐 *Horario de atención:*\n" . implode("\n", $lineas) . "\n\n";
+}
+
+function _horarioTextoFallback(): string
+{
+    return
+        "🕐 *Horario de atención:*\n" .
+        "   Lunes a Viernes: 5:00 AM – 10:00 PM\n" .
+        "   Sábados: 7:00 AM – 2:00 PM\n" .
+        "   Domingos: Cerrado\n\n";
+}
+
+function mensajeAusencia(): string
+{
+    $settings = getPanelSettings();
+    $personalizado = trim($settings['out_of_hours_message'] ?? '');
+    
+    if ($personalizado !== '') {
+        return $personalizado . "\n\nEscribe *Menú* para volver al menú principal.";
+    }
+
+    $cuando = cuandoAbreGimnasio();
+    
     return
         "🌙 *¡Ups! Fuera de horario.*\n\n" .
         "En este momento nuestros asesores no están disponibles. 😴\n\n" .
         "Estaremos de vuelta {$cuando} con toda la energía para atenderte. 💪\n\n" .
+        horarioGymTexto() .
         "📋 Mientras tanto puedes:\n" .
         "   • Consultar tu plan → escribe *3*\n" .
         "   • Realizar tu pago → escribe *4*\n" .
@@ -116,9 +289,45 @@ function mensajeAusencia(): string
         "Escribe *Menú* para volver al menú principal.";
 }
 
+function obtenerHorariosGym(): string
+{
+    $settings = getPanelSettings();
+    $hoursJson = $settings['business_hours'] ?? null;
+    
+    if (!$hoursJson) {
+        return HORARIOS_GYM_DEFAULT;
+    }
+    
+    $hours = json_decode($hoursJson, true);
+    if (!is_array($hours)) {
+        return HORARIOS_GYM_DEFAULT;
+    }
+    
+    $nombresDia = [1=>'Lunes',2=>'Martes',3=>'Miércoles',4=>'Jueves',5=>'Viernes',6=>'Sábado',7=>'Domingo'];
+    $lineas = [];
+    
+    foreach ($hours as $d => $cfg) {
+        if (!empty($cfg['open'])) {
+            $start = $cfg['start'] ?? '08:00';
+            $end = $cfg['end'] ?? '18:00';
+            $nombre = $nombresDia[(int)$d] ?? "Día $d";
+            $lineas[] = "📅 *{$nombre}*: {$start} – {$end}";
+        } elseif ((int)$d === 7) {
+            $lineas[] = "📅 *Domingos*: Cerramos para recargar energías junto a ti. ¡Descansa que mañana volvemos con todo! 💤";
+        }
+    }
+    
+    $horarioTxt = "🏋️ *" . NAME_GYM . "* — Horarios de atención\n\n" . implode("\n\n", $lineas);
+    
+    $horarioTxt .= "\n\n💡 *¿Sin tiempo entre semana?* ¡Tenemos amplios horarios para que no tengas excusas! 😄\n\n";
+    $horarioTxt .= "📍 ¡Te esperamos con las puertas abiertas y toda la energía! 💪🔥\n\n";
+    $horarioTxt .= "Escribe *Menú* para volver al menú principal.";
+    
+    return $horarioTxt;
+}
+
 // ════════════════════════════════════════════════════════════════
 //  ENVÍO WS — texto o texto + PDF
-//  Usa el mismo endpoint que SysGym: WA_API_URL + /send
 // ════════════════════════════════════════════════════════════════
 function wsSend(string $telefono, string $mensaje, ?string $pdfUrl = null): bool
 {
@@ -147,8 +356,7 @@ function wsSend(string $telefono, string $mensaje, ?string $pdfUrl = null): bool
 }
 
 // ════════════════════════════════════════════════════════════════
-//  BD DEL PANEL (bot_estados, conversations, agents, departments)
-//  Separada de la BD de SysGym que maneja db()
+//  BD DEL PANEL (bot_estados, conversations, agents, departments, settings)
 // ════════════════════════════════════════════════════════════════
 function panelDb(): PDO
 {
@@ -231,10 +439,6 @@ function resetMenu(string $sesKey, string $nombre): string
 //  INTEGRACIÓN CON EL PANEL
 // ════════════════════════════════════════════════════════════════
 
-/**
- * Notifica al panel cuando hay un nuevo mensaje del cliente.
- * Crea/actualiza la conversación y la muestra a los agentes.
- */
 function notifyPanel(string $phone, string $name, string $message, string $messageType, string $area): void
 {
     $payload = json_encode([
@@ -267,10 +471,6 @@ function notifyPanel(string $phone, string $name, string $message, string $messa
     wlog("notifyPanel HTTP=$code area=$area phone=$phone" . ($err ? " err=$err" : '') . ' resp=' . substr($response ?? '', 0, 80));
 }
 
-/**
- * Devuelve la conversación al bot en el panel
- * (cuando el cliente escribe "Menú" o el timeout del asesor expira).
- */
 function panelSetBot(string $phone): void
 {
     try {
@@ -286,10 +486,6 @@ function panelSetBot(string $phone): void
     }
 }
 
-/**
- * Verifica si el agente del panel ya resolvió o liberó la conversación
- * (el panel devolvió control al bot sin que el cliente escribiera "Menú").
- */
 function panelDevolvioAlBot(string $phone): bool
 {
     try {
@@ -304,9 +500,6 @@ function panelDevolvioAlBot(string $phone): bool
     }
 }
 
-/**
- * Envía alerta WA a los agentes del departamento GYM_DEPT_SLUG con wa_alerts=1.
- */
 function notificarAsesor(string $nombreCliente, string $from, string $motivo): void
 {
     $msg =
@@ -648,7 +841,7 @@ $telefono = (strpos($jid, '@s.whatsapp.net') !== false) ? $jid : $from;
 // Sesión siempre basada en número real
 $sesKey = $from . '_' . GYM_CLIENT_ID;
 
-// ── Anti-duplicados (usando bot_estados del panel) ────────────
+// ── Anti-duplicados ──────────────────────────────────────────
 if (!empty($messageId)) {
     try {
         $dupKey = '_dup_' . $messageId;
@@ -669,7 +862,7 @@ if (!empty($messageId)) {
     }
 }
 
-// ── Números excluidos (viene de EXCLUDE_WS_MENU en SysGym config) ─
+// ── Números excluidos ────────────────────────────────────────
 if (!empty(EXCLUDE_WS_MENU)) {
     $excluidos = array_map('trim', explode(',', EXCLUDE_WS_MENU));
     $jidLimpio = explode('@', $jid)[0];
@@ -698,7 +891,6 @@ if (empty($mensaje)) {
     $estadoTemp  = $sesDataTemp['estado'] ?? null;
 
     if ($estadoTemp === 'asesor') {
-        // Reenviar al panel para que el agente lo vea
         notifyPanel($from, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
         wlog("[$clientId] Multimedia con asesor activo — notificando panel");
         http_response_code(200); exit('OK');
@@ -750,19 +942,16 @@ $pdfUrl    = null;
 if ($estado === 'asesor') {
 
     if (panelDevolvioAlBot($from)) {
-        // El agente resolvió/liberó desde el panel
         wlog("[$clientId] Panel devolvió control al bot — reseteando estado");
         guardarEstado($sesKey, null);
         $respuesta = resetMenu($sesKey, $nombre);
 
     } elseif (esSalidaAsesor($mensaje)) {
-        // Cliente escribió "Menú"
         wlog("[$clientId] Salida de asesor por MENÚ");
         panelSetBot($from);
         $respuesta = resetMenu($sesKey, $nombre);
 
     } else {
-        // Mensaje normal con asesor activo → reenviar al panel y silenciar bot
         notifyPanel($from, $nombre, $mensaje, $messageType, 'Atención al Cliente');
         wlog("[$clientId] Silenciado — asesor activo");
         http_response_code(200); exit('OK');
@@ -801,7 +990,7 @@ if ($estado === 'asesor') {
             break;
 
         case '2':
-            $respuesta = HORARIOS_GYM;
+            $respuesta = obtenerHorariosGym();
             guardarEstado($sesKey, 'menu_principal');
             break;
 
