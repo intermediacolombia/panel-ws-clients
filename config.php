@@ -1,6 +1,7 @@
 <?php
 
-require_once __DIR__ . '/config-general.php';
+//require_once __DIR__ . '/config-general.php';
+include('/config-general.php');
 
 // ── Almacenamiento de archivos ───────────────────────────────
 define('UPLOAD_DIR', __DIR__ . '/uploads/');
