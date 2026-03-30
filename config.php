@@ -5,15 +5,15 @@
  */
 
 // ── Base de datos ────────────────────────────────────────────
-define('DB_HOST', 'localhost');
+define('DB_HOST', 'intermediahost.co');
 define('DB_PORT', '3306');
-define('DB_USER', 'inte_inte_panelws');
-define('DB_PASS', '6eJlaiutyfrh2lLf');
-define('DB_NAME', 'inte_panelws');
+define('DB_USER', 'inte_whatsapp_activ');
+define('DB_PASS', 'CCJRWNjuKxDR$J4Y');
+define('DB_NAME', 'inte_whatsapp_activ');
 
 // ── API Node.js Baileys ──────────────────────────────────────
 // V2: renombradas a WA_API_URL / WA_API_KEY para evitar colisión
-define('WA_API_URL', 'https://api.intermediahost.co');   // sin slash final
+define('WA_API_URL', 'https://whatsapp.activgym.com.co');   // sin slash final
 define('WA_API_KEY', 'e9a745d149950ff4650681538bc7a385ae1f6b9311ac59c109a7198f4b2adc32');
 
 // ── Seguridad interna (compartido con webhook PHP) ───────────
