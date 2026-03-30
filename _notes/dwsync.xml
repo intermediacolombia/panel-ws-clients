@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <dwsync>
-<file name="auth.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193571057137132" remote="134193571200000000" Dst="0" />
-<file name="config.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193570704179070" remote="134193571200000000" Dst="0" />
-<file name="db.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192051736574825" remote="134192451600000000" Dst="0" />
-<file name="helpers.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192456109373504" remote="134192456400000000" Dst="0" />
-<file name="incoming.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192991692640917" remote="134192993400000000" Dst="0" />
-<file name="index.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192245085853878" remote="134192451600000000" Dst="0" />
-<file name="login.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192052593835171" remote="134192451600000000" Dst="0" />
-<file name="logout.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192052890116133" remote="134192451600000000" Dst="0" />
-<file name="README.md" server="intermediahost.co/panelws.intermediahost.co/" local="134193574277755395" remote="134193587400000000" Dst="0" />
-<file name="schema.sql" server="intermediahost.co/panelws.intermediahost.co/" local="134193576510336963" remote="134193587400000000" Dst="0" />
-<file name="sse.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192053394644499" remote="134192451600000000" Dst="0" />
-<file name="webhook.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193586581702801" remote="134193587400000000" Dst="0" />
-<file name="app-ws-c9beb-firebase-adminsdk-fbsvc-fb4c74dea4.json" server="intermediahost.co/panelws.intermediahost.co/" local="134192992797112438" remote="134192993400000000" Dst="0" />
+<file name="auth.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193571057137132" remote="134193747000000000" Dst="0" />
+<file name="config.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193751984025606" remote="134193752400000000" Dst="0" />
+<file name="db.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192051736574825" remote="134193747000000000" Dst="0" />
+<file name="helpers.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192456109373504" remote="134193747000000000" Dst="0" />
+<file name="incoming.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192991692640917" remote="134193747000000000" Dst="0" />
+<file name="index.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192245085853878" remote="134193747000000000" Dst="0" />
+<file name="login.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192052593835171" remote="134193747000000000" Dst="0" />
+<file name="logout.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192052890116133" remote="134193747000000000" Dst="0" />
+<file name="README.md" server="intermediahost.co/panelws.intermediahost.co/" local="134193574277755395" remote="134193747000000000" Dst="0" />
+<file name="schema.sql" server="intermediahost.co/panelws.intermediahost.co/" local="134193589868728492" remote="134193747000000000" Dst="0" />
+<file name="sse.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192053394644499" remote="134193747000000000" Dst="0" />
+<file name="webhook.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193586581702801" remote="134193747000000000" Dst="0" />
+<file name=".gitignore" server="intermediahost.co/panelws.intermediahost.co/" local="134193665890296621" remote="134193746400000000" Dst="0" />
+<file name="config-general.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193746340158280" remote="134193747000000000" Dst="0" />
+<file name="install.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193613226364440" remote="134193747000000000" Dst="0" />
+<file name="webhook-activgym.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193701942751129" remote="134193747000000000" Dst="0" />
+<file name="firebase-service-account.json" server="intermediahost.co/panelws.intermediahost.co/" local="134192992797112438" remote="134193752400000000" Dst="0" />
 </dwsync>

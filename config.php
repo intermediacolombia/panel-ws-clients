@@ -19,7 +19,7 @@ define('LOGIN_BLOCK_MINUTES',   15); // alias — usado en login.php
 // ── Firebase Cloud Messaging (HTTP v1) ───────────────────────
 // Descarga el JSON de: Firebase Console → ⚙️ Configuración → Cuentas de servicio → Generar nueva clave privada
 // Guárdalo en la raíz del panel como: firebase-service-account.json
-define('FCM_SERVICE_ACCOUNT', __DIR__ . '/app-ws-c9beb-firebase-adminsdk-fbsvc-fb4c74dea4.json');
+define('FCM_SERVICE_ACCOUNT', __DIR__ . '/firebase-service-account.json');
 
 // ── Zona horaria ─────────────────────────────────────────────
 date_default_timezone_set('America/Bogota');
