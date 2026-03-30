@@ -316,10 +316,12 @@ function wsSend($destino, $mensaje)
 
 // ════════════════════════════════════════════════════════════════
 //  NOTIFICACIÓN INTERNA AL ASESOR (WA)
+//  Envía alerta por WhatsApp a todos los agentes del departamento
+//  que tengan wa_alerts=1 y phone configurado en la BD.
+//  $deptSlug: slug del departamento ('ventas','soporte','pagos','otros')
 // ════════════════════════════════════════════════════════════════
-function notificarAsesor($nombreCliente, $from, $motivo)
+function notificarAsesor($nombreCliente, $from, $motivo, $deptSlug = null)
 {
-    $numero = '573147165269';
     $msg =
         "🔔 *Alerta de atención*\n\n" .
         "El cliente *{$nombreCliente}* está intentando contactar por WhatsApp.\n\n" .
@@ -327,25 +329,64 @@ function notificarAsesor($nombreCliente, $from, $motivo)
         "📞 Número: {$from}\n\n" .
         "_Por favor atender a la brevedad._";
 
-    $ch = curl_init(API_URL);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_HTTPHEADER     => [
-            'Authorization: Bearer ' . API_KEY,
-            'Content-Type: application/json',
-            'Accept: application/json',
-        ],
-        CURLOPT_POSTFIELDS => json_encode([
-            'phonenumber' => $numero,
-            'text'        => $msg,
-        ], JSON_UNESCAPED_UNICODE),
-    ]);
-    curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    wlog("notificarAsesor HTTP=$code motivo=$motivo cliente=$nombreCliente ($from)");
+    // Obtener teléfonos de agentes con alertas activas del departamento indicado
+    $numeros = [];
+    try {
+        $pdo = DB::get();
+
+        if ($deptSlug) {
+            // Agentes del departamento específico con wa_alerts=1
+            $stmt = $pdo->prepare(
+                "SELECT DISTINCT a.phone
+                 FROM agents a
+                 JOIN agent_departments ad ON ad.agent_id = a.id
+                 JOIN departments d ON d.id = ad.department_id
+                 WHERE d.slug = ?
+                   AND a.wa_alerts = 1
+                   AND a.status = 'active'
+                   AND a.phone IS NOT NULL
+                   AND a.phone <> ''"
+            );
+            $stmt->execute([$deptSlug]);
+        } else {
+            // Sin departamento: todos los agentes con alertas activas
+            $stmt = $pdo->query(
+                "SELECT phone FROM agents
+                 WHERE wa_alerts = 1 AND status = 'active'
+                   AND phone IS NOT NULL AND phone <> ''"
+            );
+        }
+        $numeros = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (PDOException $e) {
+        wlog("notificarAsesor DB error: " . $e->getMessage());
+    }
+
+    if (empty($numeros)) {
+        wlog("notificarAsesor: sin destinatarios para dept=$deptSlug motivo=$motivo");
+        return;
+    }
+
+    foreach ($numeros as $numero) {
+        $ch = curl_init(API_URL);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: Bearer ' . API_KEY,
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ],
+            CURLOPT_POSTFIELDS => json_encode([
+                'phonenumber' => $numero,
+                'text'        => $msg,
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+        curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        wlog("notificarAsesor => $numero HTTP=$code dept=$deptSlug motivo=$motivo cliente=$nombreCliente ($from)");
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -690,7 +731,7 @@ if (empty($mensaje)) {
         notifyPanel($from, $nombre, '[comprobante]', $messageType, $clientId, 'Medios de Pago', $mediaUrl, $caption);
 
         // Notificar al asesor por WA
-        notificarAsesor($nombre, $from, "Comprobante de pago recibido — pendiente validación");
+        notificarAsesor($nombre, $from, "Comprobante de pago recibido — pendiente validación", 'pagos');
 
         if (empresaAbierta()) {
             $msgComprobante =
@@ -846,7 +887,7 @@ if ($estado === 'asesor') {
             guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Ventas - ' . $servicio]);
             wlog("[$clientId] LEAD VENTAS: $nombre ($from) — $servicio");
             notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas - ' . $servicio);
-            notificarAsesor($nombre, $from, "Ventas — {$servicio}");
+            notificarAsesor($nombre, $from, "Ventas — {$servicio}", 'ventas');
         } else {
             $respuesta = mensajeAusenciaVentas();
             guardarEstado($sesKey, 'menu_principal');
@@ -882,7 +923,7 @@ if ($estado === 'asesor') {
         guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Soporte - ' . $servicio]);
         wlog("[$clientId] TICKET SOPORTE: $nombre ($from) — $servicio");
         notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte - ' . $servicio);
-        notificarAsesor($nombre, $from, "Soporte Técnico — {$servicio}");
+        notificarAsesor($nombre, $from, "Soporte Técnico — {$servicio}", 'soporte');
     } else {
         $respuesta = "⚠️ Opción no válida.\n\n" . menuSoporte();
     }
@@ -921,7 +962,7 @@ if ($estado === 'asesor') {
     guardarEstado($sesKey, 'asesor', ['consulta' => $mensaje, 'area' => 'Otros']);
     wlog("[$clientId] OTROS: $nombre ($from) — $mensaje");
     notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Otros');
-    notificarAsesor($nombre, $from, "Otros — " . mb_substr($mensaje, 0, 60));
+    notificarAsesor($nombre, $from, "Otros — " . mb_substr($mensaje, 0, 60), 'otros');
 
 // ── I. Sin estado (primera vez o expirado) ───────────────────
 } else {

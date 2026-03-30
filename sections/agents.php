@@ -22,6 +22,7 @@ requireSupervisor();
           <th>Nombre</th>
           <th>Usuario</th>
           <th>Email</th>
+          <th>Teléfono / Alertas WA</th>
           <th>Rol</th>
           <th>Departamentos</th>
           <th>Estado</th>
@@ -79,6 +80,16 @@ requireSupervisor();
             <option value="inactive">Inactivo</option>
           </select>
         </div>
+        <div class="form-row">
+          <label>Teléfono WhatsApp</label>
+          <input type="text" id="agent-phone" placeholder="573001234567" autocomplete="off">
+        </div>
+        <div class="form-row" style="display:flex;align-items:center;gap:10px;padding-top:22px">
+          <label class="dept-check-label" style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
+            <input type="checkbox" id="agent-wa-alerts" style="width:16px;height:16px;cursor:pointer">
+            Enviar alertas de atención de sus áreas
+          </label>
+        </div>
       </div>
 
       <div class="form-row">
@@ -135,7 +146,7 @@ window.AgentsPanel = (() => {
     if (!tbody) return;
 
     if (!agents.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center">Sin agentes.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-muted text-center">Sin agentes.</td></tr>';
       return;
     }
 
@@ -148,6 +159,13 @@ window.AgentsPanel = (() => {
         ? new Date(a.last_seen.replace(' ','T')).toLocaleString('es-CO')
         : 'Nunca';
 
+      const phoneCell = a.phone
+        ? `<div style="font-size:.82rem">${esc(a.phone)}</div>
+           ${a.wa_alerts
+             ? '<span style="font-size:.72rem;color:var(--verde-wa)"><i class="fas fa-bell"></i> Alertas activas</span>'
+             : '<span style="font-size:.72rem;color:var(--texto-suave)"><i class="fas fa-bell-slash"></i> Sin alertas</span>'}`
+        : '<span class="text-muted">—</span>';
+
       return `<tr>
         <td>
           <span class="online-dot ${a.online ? 'online' : 'offline'}"></span>
@@ -155,6 +173,7 @@ window.AgentsPanel = (() => {
         </td>
         <td>${esc(a.username)}</td>
         <td>${esc(a.email)}</td>
+        <td>${phoneCell}</td>
         <td>
           <span style="text-transform:capitalize;font-weight:500;color:${a.role==='supervisor'?'var(--verde-mid)':'inherit'}">${esc(a.role)}</span>
         </td>
@@ -197,6 +216,8 @@ window.AgentsPanel = (() => {
     document.getElementById('agent-username').value = '';
     document.getElementById('agent-email').value = '';
     document.getElementById('agent-password').value = '';
+    document.getElementById('agent-phone').value = '';
+    document.getElementById('agent-wa-alerts').checked = false;
     document.getElementById('agent-role').value = 'agente';
     document.getElementById('agent-status').value = 'active';
     document.getElementById('pw-hint').textContent = '(requerida)';
@@ -217,6 +238,8 @@ window.AgentsPanel = (() => {
     document.getElementById('agent-username').value = agent.username;
     document.getElementById('agent-email').value = agent.email;
     document.getElementById('agent-password').value = '';
+    document.getElementById('agent-phone').value = agent.phone || '';
+    document.getElementById('agent-wa-alerts').checked = !!agent.wa_alerts;
     document.getElementById('agent-role').value = agent.role;
     document.getElementById('agent-status').value = agent.status;
     document.getElementById('pw-hint').textContent = '(dejar vacío para no cambiar)';
@@ -237,13 +260,15 @@ window.AgentsPanel = (() => {
     const deptIds    = Array.from(deptChecks).map(cb => parseInt(cb.value));
 
     const payload = {
-      name:     document.getElementById('agent-name').value.trim(),
-      username: document.getElementById('agent-username').value.trim(),
-      email:    document.getElementById('agent-email').value.trim(),
-      password: document.getElementById('agent-password').value,
-      role:     document.getElementById('agent-role').value,
-      status:   document.getElementById('agent-status').value,
-      dept_ids: deptIds,
+      name:      document.getElementById('agent-name').value.trim(),
+      username:  document.getElementById('agent-username').value.trim(),
+      email:     document.getElementById('agent-email').value.trim(),
+      password:  document.getElementById('agent-password').value,
+      phone:     document.getElementById('agent-phone').value.trim(),
+      wa_alerts: document.getElementById('agent-wa-alerts').checked ? 1 : 0,
+      role:      document.getElementById('agent-role').value,
+      status:    document.getElementById('agent-status').value,
+      dept_ids:  deptIds,
     };
 
     const isEdit = !!editId;

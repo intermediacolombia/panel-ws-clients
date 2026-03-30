@@ -19,8 +19,8 @@ try {
     // ── GET ──────────────────────────────────────────────────────
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt = $pdo->query(
-            "SELECT a.id, a.username, a.name, a.email, a.role, a.status,
-                    a.last_seen, a.created_at,
+            "SELECT a.id, a.username, a.name, a.email, a.phone, a.wa_alerts,
+                    a.role, a.status, a.last_seen, a.created_at,
                     CASE WHEN a.last_seen >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                          THEN 1 ELSE 0 END AS online
              FROM agents a
@@ -45,6 +45,7 @@ try {
 
         foreach ($agents as &$ag) {
             $ag['id']           = (int)$ag['id'];
+            $ag['wa_alerts']    = (bool)$ag['wa_alerts'];
             $ag['online']       = (bool)$ag['online'];
             $ag['departments']  = $deptsByAgent[$ag['id']] ?? [];
         }
@@ -59,12 +60,14 @@ try {
         $raw  = file_get_contents('php://input');
         $data = json_decode($raw, true);
 
-        $username = trim($data['username'] ?? '');
-        $password = trim($data['password'] ?? '');
-        $name     = trim($data['name']     ?? '');
-        $email    = trim($data['email']    ?? '');
-        $role     = trim($data['role']     ?? 'agente');
-        $deptIds  = array_map('intval', $data['dept_ids'] ?? []);
+        $username  = trim($data['username']  ?? '');
+        $password  = trim($data['password']  ?? '');
+        $name      = trim($data['name']      ?? '');
+        $email     = trim($data['email']     ?? '');
+        $phone     = trim($data['phone']     ?? '');
+        $waAlerts  = !empty($data['wa_alerts']) ? 1 : 0;
+        $role      = trim($data['role']      ?? 'agente');
+        $deptIds   = array_map('intval', $data['dept_ids'] ?? []);
 
         if ($username === '' || $password === '' || $name === '' || $email === '') {
             http_response_code(400);
@@ -92,9 +95,9 @@ try {
         $now      = date('Y-m-d H:i:s');
 
         $pdo->prepare(
-            'INSERT INTO agents (username, password, name, email, role, status, created_at, updated_at)
-             VALUES (?,?,?,?,?,?,?,?)'
-        )->execute([$username, $hashedPw, $name, $email, $role, 'active', $now, $now]);
+            'INSERT INTO agents (username, password, name, email, phone, wa_alerts, role, status, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?)'
+        )->execute([$username, $hashedPw, $name, $email, $phone ?: null, $waAlerts, $role, 'active', $now, $now]);
 
         $newId = (int)$pdo->lastInsertId();
 
@@ -120,6 +123,8 @@ try {
         $agentId  = (int)($data['id'] ?? 0);
         $name     = trim($data['name']   ?? '');
         $email    = trim($data['email']  ?? '');
+        $phone    = trim($data['phone']  ?? '');
+        $waAlerts = isset($data['wa_alerts']) ? ((int)$data['wa_alerts'] ? 1 : 0) : 0;
         $role     = trim($data['role']   ?? '');
         $status   = trim($data['status'] ?? '');
         $password = trim($data['password'] ?? '');
@@ -140,8 +145,8 @@ try {
         if (!in_array($role, ['supervisor','agente'])) $role = 'agente';
         if (!in_array($status, ['active','inactive']))  $status = 'active';
 
-        $params = [$name, $email, $role, $status];
-        $setParts = 'name=?, email=?, role=?, status=?';
+        $params   = [$name, $email, $phone ?: null, $waAlerts, $role, $status];
+        $setParts = 'name=?, email=?, phone=?, wa_alerts=?, role=?, status=?';
 
         if ($password !== '') {
             if (strlen($password) < 6) {
