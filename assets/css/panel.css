@@ -616,6 +616,7 @@ input, textarea { font-family: inherit; }
 .btn-resolve   { background: var(--attending); color: var(--blanco); }
 .btn-release   { background: var(--bot);       color: var(--blanco); }
 .btn-transfer  { background: #34495e;          color: var(--blanco); }
+.btn-rename    { background: #5c6bc0;          color: var(--blanco); }
 .btn-info      { background: #f0f4f8;          color: var(--texto);  }
 
 /* Menú de transferencia */
@@ -1746,6 +1747,7 @@ input, textarea { font-family: inherit; }
 [data-theme="dark"] .composer-textarea:focus    { background: #1c2333; }
 [data-theme="dark"] .file-preview               { background: #21262d; }
 [data-theme="dark"] .caption-field input        { background: #21262d; color: var(--texto); }
+[data-theme="dark"] #rename-input              { background: #21262d; color: var(--texto); border-color: var(--borde); }
 
 /* Info lateral - ítems anteriores */
 [data-theme="dark"] .prev-conv-item { border-bottom-color: #21262d; }

@@ -187,6 +187,11 @@ const Chat = (() => {
                </button>`;
     }
 
+    // Botón editar nombre
+    html += `<button class="btn-action btn-rename" onclick="Chat.openRenameModal()" title="Editar nombre del contacto">
+               <i class="fas fa-user-edit"></i>
+             </button>`;
+
     // Botón info
     html += `<button class="btn-action btn-info" onclick="Chat.toggleInfo()" title="Información del contacto">
                <i class="fas fa-info-circle"></i>
@@ -596,6 +601,55 @@ const Chat = (() => {
     }
   }
 
+  // ── Editar nombre del contacto ────────────────────────────
+  function openRenameModal() {
+    if (!_conv) return;
+    const modal = document.getElementById('modal-rename');
+    const input = document.getElementById('rename-input');
+    if (!modal || !input) return;
+    input.value = _conv.contact_name || '';
+    modal.classList.add('open');
+    setTimeout(() => { input.focus(); input.select(); }, 80);
+  }
+
+  function closeRenameModal() {
+    const modal = document.getElementById('modal-rename');
+    if (modal) modal.classList.remove('open');
+  }
+
+  async function doRename() {
+    if (!_conv) return;
+    const input = document.getElementById('rename-input');
+    const name  = (input?.value || '').trim();
+    if (!name) { input?.focus(); return; }
+
+    try {
+      const res  = await fetch('/api/update_contact.php', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body:        JSON.stringify({ conversationId: _conv.id, contactName: name }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        _conv.contact_name = name;
+        // Actualizar header
+        const nameEl = document.getElementById('chat-contact-name');
+        if (nameEl) nameEl.textContent = name;
+        // Actualizar ítem en la lista
+        const convItem = document.querySelector(`.conv-item[data-conv-id="${_conv.id}"] .conv-name`);
+        if (convItem) convItem.textContent = name;
+        closeRenameModal();
+        Notify.showToast('Nombre actualizado.', 'success');
+      } else {
+        Notify.showToast(json.error || 'Error al guardar.', 'error');
+      }
+    } catch (_) {
+      Notify.showToast('Error de red.', 'error');
+    }
+  }
+
   // ── Transferencia (modal) ──────────────────────────────────
   let _selectedTransferAgentId   = null;
   let _selectedTransferAgentName = null;
@@ -817,6 +871,9 @@ const Chat = (() => {
     closeAttachMenu,
     triggerFileInput,
     toggleInfo,
+    openRenameModal,
+    closeRenameModal,
+    doRename,
     openTransferModal,
     closeTransferModal,
     doTransfer,

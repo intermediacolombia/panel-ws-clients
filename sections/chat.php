@@ -104,6 +104,31 @@
   </div><!-- /chat-wrap -->
 </div><!-- /content-area -->
 
+<!-- Modal editar nombre del contacto -->
+<div class="modal-overlay" id="modal-rename">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-header">
+      <span class="modal-title">
+        <i class="fas fa-edit" style="color:var(--verde-mid);margin-right:6px"></i>
+        Editar nombre del contacto
+      </span>
+      <button class="modal-close" onclick="Chat.closeRenameModal()">&times;</button>
+    </div>
+    <div style="padding:4px 0 16px">
+      <input type="text" id="rename-input" maxlength="100"
+             placeholder="Nombre del contacto"
+             style="width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:var(--radius-sm);font-size:.95rem;box-sizing:border-box;background:var(--bg-input,#fff);color:var(--texto)"
+             onkeydown="if(event.key==='Enter')Chat.doRename()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="Chat.closeRenameModal()">Cancelar</button>
+      <button class="btn-primary" onclick="Chat.doRename()">
+        <i class="fas fa-save"></i> Guardar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de transferencia -->
 <div class="modal-overlay" id="modal-transfer">
   <div class="modal-box" style="max-width:400px">
