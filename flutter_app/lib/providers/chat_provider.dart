@@ -34,6 +34,9 @@ class ChatProvider extends ChangeNotifier {
 
   void setActiveChatId(int? id) => _activeChatId = id;
 
+  // ── Mensajes locales fallidos ────────────────────────────────
+  int _localIdCounter = -1;
+
   // ── Agentes en línea (para transferir) ──────────────────────
   List<Map<String, dynamic>> _onlineAgents = [];
   bool _loadingAgents = false;
@@ -129,9 +132,12 @@ class ChatProvider extends ChangeNotifier {
     );
     if (res['success'] != true) return;
 
-    final updated = _parseMsgs(res);
-    if (updated.length != _messages.length) {
-      _messages   = updated;
+    final serverMsgs  = _parseMsgs(res);
+    final localFailed = _messages.where((m) => m.isLocalFailed).toList();
+    final merged      = [...serverMsgs, ...localFailed];
+
+    if (merged.length != _messages.length) {
+      _messages   = merged;
       _activeConv = Conversation.fromJson(
           res['conversation'] as Map<String, dynamic>);
       notifyListeners();
@@ -164,9 +170,23 @@ class ChatProvider extends ChangeNotifier {
       return true;
     }
 
+    // Sin conexión u otro error: agregar mensaje local fallido para poder reenviar
+    _messages.add(Message.localFailed(
+      localId:        _localIdCounter--,
+      conversationId: convId,
+      text:           text.trim(),
+    ));
     _sendError = res['error'] as String? ?? 'Error al enviar.';
     notifyListeners();
     return false;
+  }
+
+  /// Reenviar un mensaje local fallido.
+  Future<bool> resendMessage(Message failedMsg) async {
+    if (!failedMsg.isLocalFailed) return false;
+    _messages.removeWhere((m) => m.id == failedMsg.id);
+    notifyListeners();
+    return sendMessage(failedMsg.conversationId, failedMsg.content ?? '');
   }
 
   /// Enviar archivo (imagen o documento) ya leído como bytes.

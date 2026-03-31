@@ -181,7 +181,11 @@ const App = (() => {
 
     return `<div class="conv-item" data-conv-id="${c.id}"
                  onclick="App.openConversation(${c.id})">
-      <div class="conv-avatar ${c.status}" data-phone="${_escAttr(c.phone)}">${_escHtml(initial)}</div>
+      <div class="conv-avatar ${c.status}"
+           data-phone="${_escAttr(c.phone)}"
+           data-name="${_escAttr(c.contact_name || c.phone)}"
+           data-status="${_escAttr(c.status)}"
+           onclick="event.stopPropagation();ProfileModal.openFromEl(this)">${_escHtml(initial)}</div>
       <div class="conv-info">
         <div class="conv-info-top">
           <span class="conv-name">${_escHtml(name)}</span>

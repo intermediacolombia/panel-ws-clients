@@ -17,7 +17,7 @@ class QuickReplyService {
   static Future<List<String>> getAll() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList(_key);
-    return stored ?? _defaults;
+    return stored ?? List<String>.from(_defaults);
   }
 
   static Future<void> save(List<String> replies) async {

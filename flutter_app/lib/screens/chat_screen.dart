@@ -108,12 +108,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
     _inputCtrl.clear();
 
-    final ok = await context.read<ChatProvider>().sendMessage(widget.conversation.id, text);
-    if (ok) {
-      _scrollToBottom();
-    } else if (mounted) {
-      _showError(context.read<ChatProvider>().sendError ?? 'Error al enviar');
-    }
+    await context.read<ChatProvider>().sendMessage(widget.conversation.id, text);
+    _scrollToBottom(); // muestra el mensaje enviado o el fallido en rojo
+  }
+
+  Future<void> _resend(Message msg) async {
+    await context.read<ChatProvider>().resendMessage(msg);
+    _scrollToBottom();
   }
 
   void _showError(String msg) {
@@ -202,9 +203,9 @@ class _ChatScreenState extends State<ChatScreen> {
       if (file.bytes == null) return;
 
       final b64      = base64Encode(file.bytes!);
-      final mimeType = _mimeFromExtension(file.name ?? 'archivo');
+      final mimeType = _mimeFromExtension(file.name);
 
-      await _sendFile(b64, file.name ?? 'archivo', mimeType);
+      await _sendFile(b64, file.name, mimeType);
     } catch (e) {
       _showError('No se pudo seleccionar el documento.');
     }
@@ -360,7 +361,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           // Lista de mensajes
-          Expanded(child: _MessageList(scrollCtrl: _scrollCtrl, loaded: _loaded)),
+          Expanded(child: _MessageList(scrollCtrl: _scrollCtrl, loaded: _loaded, onResend: _resend)),
 
           // Panel de respuestas rápidas
           if (_showQR) _QuickRepliesPanel(
@@ -434,21 +435,54 @@ class _ProfilePicSmall extends StatelessWidget {
   final String initials;
   const _ProfilePicSmall({required this.phone, required this.initials});
 
+  void _showModal(BuildContext context) {
+    final url   = '${ApiConstants.baseUrl}/api/profile_picture.php?phone=$phone';
+    final token = ApiService.token;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(32),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(ctx),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
+            imageBuilder: (_, p) => CircleAvatar(radius: 90, backgroundImage: p),
+            placeholder: (_, __) => CircleAvatar(
+              radius: 90, backgroundColor: Colors.white24,
+              child: Text(initials,
+                  style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.bold)),
+            ),
+            errorWidget: (_, __, ___) => CircleAvatar(
+              radius: 90, backgroundColor: Colors.white24,
+              child: Text(initials,
+                  style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final url   = '${ApiConstants.baseUrl}/api/profile_picture.php?phone=$phone';
     final token = ApiService.token;
-    return CachedNetworkImage(
-      imageUrl: url,
-      httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
-      imageBuilder: (_, p) => CircleAvatar(radius: 18, backgroundImage: p),
-      placeholder: (_, __) => CircleAvatar(
-        radius: 18, backgroundColor: Colors.white24,
-        child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-      errorWidget: (_, __, ___) => CircleAvatar(
-        radius: 18, backgroundColor: Colors.white24,
-        child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+    return GestureDetector(
+      onTap: () => _showModal(context),
+      child: CachedNetworkImage(
+        imageUrl: url,
+        httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
+        imageBuilder: (_, p) => CircleAvatar(radius: 18, backgroundImage: p),
+        placeholder: (_, __) => CircleAvatar(
+          radius: 18, backgroundColor: Colors.white24,
+          child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        errorWidget: (_, __, ___) => CircleAvatar(
+          radius: 18, backgroundColor: Colors.white24,
+          child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }
@@ -457,7 +491,8 @@ class _ProfilePicSmall extends StatelessWidget {
 class _MessageList extends StatelessWidget {
   final ScrollController scrollCtrl;
   final bool loaded;
-  const _MessageList({required this.scrollCtrl, required this.loaded});
+  final void Function(Message)? onResend;
+  const _MessageList({required this.scrollCtrl, required this.loaded, this.onResend});
 
   @override
   Widget build(BuildContext context) => Consumer<ChatProvider>(
@@ -475,7 +510,13 @@ class _MessageList extends StatelessWidget {
         controller: scrollCtrl,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         itemCount: chat.messages.length,
-        itemBuilder: (_, i) => _Bubble(msg: chat.messages[i]),
+        itemBuilder: (_, i) {
+          final msg = chat.messages[i];
+          return _Bubble(
+            msg: msg,
+            onResend: msg.isLocalFailed && onResend != null ? () => onResend!(msg) : null,
+          );
+        },
       );
     },
   );
@@ -677,7 +718,8 @@ class _QuickRepliesPanel extends StatelessWidget {
 
 class _Bubble extends StatelessWidget {
   final Message msg;
-  const _Bubble({required this.msg});
+  final VoidCallback? onResend;
+  const _Bubble({required this.msg, this.onResend});
 
   @override
   Widget build(BuildContext context) {
@@ -685,7 +727,9 @@ class _Bubble extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final bgColor = isOut
-        ? (isDark ? AppTheme.outBubbleDark : AppTheme.outBubble)
+        ? (msg.isLocalFailed
+            ? (isDark ? const Color(0xFF4A1010) : Colors.red.shade50)
+            : (isDark ? AppTheme.outBubbleDark : AppTheme.outBubble))
         : (isDark ? AppTheme.inBubbleDark  : AppTheme.inBubble);
 
     return Align(
@@ -746,7 +790,7 @@ class _Bubble extends StatelessWidget {
                   color: isDark ? Colors.white.withOpacity(0.87) : const Color(0xFF111B21),
                 ),
               ),
-            // Hora + check
+            // Hora + check + reenviar
             const SizedBox(height: 2),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -763,6 +807,22 @@ class _Bubble extends StatelessWidget {
                         : Icons.done_all_rounded,
                     size: 13,
                     color: msg.failed ? Colors.red : AppTheme.textMuted,
+                  ),
+                ],
+                if (msg.isLocalFailed && onResend != null) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: onResend,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 13, color: Colors.red.shade700),
+                        const SizedBox(width: 2),
+                        Text('Reintentar',
+                            style: TextStyle(fontSize: 10, color: Colors.red.shade700,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
                 ],
               ],

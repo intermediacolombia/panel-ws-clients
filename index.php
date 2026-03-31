@@ -152,6 +152,15 @@ window.PANEL_CONFIG = {
 <!-- ── Contenedor de Toasts ───────────────────────────────── -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- ── Modal foto de perfil ──────────────────────────────── -->
+<div class="pp-modal-overlay hidden" id="pp-modal" onclick="ProfileModal.close()">
+  <div class="pp-modal-content" onclick="event.stopPropagation()">
+    <div class="pp-modal-avatar" id="pp-modal-avatar"></div>
+    <div class="pp-modal-name"   id="pp-modal-name"></div>
+    <div class="pp-modal-hint">Toca fuera para cerrar</div>
+  </div>
+</div>
+
 <!-- ── Scripts ────────────────────────────────────────────── -->
 <script>
 const Theme = (() => {
@@ -182,6 +191,54 @@ const Theme = (() => {
 })();
 
 Theme.init();
+</script>
+<script>
+const ProfileModal = (() => {
+  function openFromEl(el) {
+    const phone  = el.dataset.phone  || '';
+    const name   = el.dataset.name   || phone;
+    const status = el.dataset.status || '';
+    open(phone, name, status);
+  }
+
+  function open(phone, name, status) {
+    const overlay  = document.getElementById('pp-modal');
+    const avatarEl = document.getElementById('pp-modal-avatar');
+    const nameEl   = document.getElementById('pp-modal-name');
+    if (!overlay || !avatarEl) return;
+
+    // Iniciales (1 o 2 letras)
+    const parts    = String(name || phone || '?').trim().split(/\s+/);
+    const initials = (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+
+    avatarEl.className = 'pp-modal-avatar ' + (status || '');
+    avatarEl.innerHTML = initials;
+    if (nameEl) nameEl.textContent = name || phone;
+
+    overlay.classList.remove('hidden');
+
+    // Cargar imagen de perfil
+    if (phone) {
+      const img = new Image();
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;display:block';
+      img.alt   = '';
+      img.onload = () => {
+        avatarEl.innerHTML = '';
+        avatarEl.appendChild(img);
+      };
+      img.src = '/api/profile_picture.php?phone=' + encodeURIComponent(phone);
+    }
+  }
+
+  function close() {
+    const overlay = document.getElementById('pp-modal');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  return { open, openFromEl, close };
+})();
 </script>
 <script src="assets/js/notify.js"></script>
 <script src="assets/js/realtime.js"></script>

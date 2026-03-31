@@ -91,6 +91,9 @@ const Chat = (() => {
     const phone    = _conv.phone;
     const initials = _avatarInitials(_conv.contact_name || phone);
 
+    // Click abre modal de foto de perfil
+    avatarEl.onclick = () => ProfileModal.open(phone, _conv.contact_name || phone, _conv.status);
+
     // Mostrar iniciales por defecto
     avatarEl.style.backgroundImage = '';
     avatarEl.innerHTML = initials;

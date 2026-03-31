@@ -45,10 +45,25 @@ class Message {
     createdAt:      json['created_at'] as String,
   );
 
-  bool get isOutgoing  => direction == 'out';
-  bool get isImage     => type == 'image';
-  bool get isDocument  => type == 'document';
-  bool get failed      => status == 'failed';
+  bool get isOutgoing    => direction == 'out';
+  bool get isImage       => type == 'image';
+  bool get isDocument    => type == 'document';
+  bool get isLocalFailed => status == 'local_failed';
+  bool get failed        => status == 'failed' || isLocalFailed;
+
+  factory Message.localFailed({
+    required int localId,
+    required int conversationId,
+    required String text,
+  }) => Message(
+    id:             localId,
+    conversationId: conversationId,
+    direction:      'out',
+    type:           'text',
+    content:        text,
+    status:         'local_failed',
+    createdAt:      DateTime.now().toUtc().toIso8601String(),
+  );
 
   String get displayText {
     if (type == 'text') return content ?? '';

@@ -1585,6 +1585,77 @@ input, textarea { font-family: inherit; }
 .notif-msg { font-size: 0.83rem; margin-bottom: 2px; }
 .notif-time { font-size: 0.72rem; color: var(--texto-suave); }
 
+/* ── Modal foto de perfil ────────────────────────────────────── */
+.pp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: pp-fadein .18s ease;
+}
+.pp-modal-overlay.hidden { display: none; }
+@keyframes pp-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.pp-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  cursor: default;
+}
+.pp-modal-avatar {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: var(--attending);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.5rem;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  border: 3px solid rgba(255,255,255,.25);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.pp-modal-avatar.pending   { background: var(--pending);  }
+.pp-modal-avatar.attending { background: var(--attending); }
+.pp-modal-avatar.resolved  { background: var(--resolved);  }
+.pp-modal-avatar.bot       { background: var(--bot);       }
+.pp-modal-avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+.pp-modal-name {
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,.5);
+  max-width: 240px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-modal-hint {
+  color: rgba(255,255,255,.5);
+  font-size: .75rem;
+}
+
+/* Avatares clickeables */
+.conv-avatar[data-phone] { cursor: pointer; }
+#chat-avatar { cursor: pointer; }
+
 /* ── Toasts ─────────────────────────────────────────────────── */
 .toast-container {
   position: fixed;
