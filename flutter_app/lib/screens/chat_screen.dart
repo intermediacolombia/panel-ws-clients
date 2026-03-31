@@ -377,9 +377,13 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(conv.contactName,
+                  Consumer<ChatProvider>(
+                    builder: (_, chat, __) => Text(
+                      chat.activeConversation?.contactName ?? conv.contactName,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   Consumer<ChatProvider>(
                     builder: (_, chat, __) {
                       final active = chat.activeConversation ?? conv;
