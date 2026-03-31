@@ -1846,6 +1846,8 @@ input, textarea { font-family: inherit; }
 [data-theme="dark"] .attach-menu-item:hover { background: #21262d; }
 
 /* Emoji picker */
+[data-theme="dark"] .btn-emoji               { background: #21262d; color: var(--texto-suave); }
+[data-theme="dark"] .btn-emoji:hover         { background: var(--verde-wa); color: #fff; }
 [data-theme="dark"] .emoji-picker { background: #1c2333; }
 [data-theme="dark"] .emoji-categories { border-bottom-color: #2d333b; }
 [data-theme="dark"] .emoji-btn:hover { background: #2d333b; }
@@ -1899,6 +1901,7 @@ input, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .btn-theme:hover { background: rgba(255,255,255,0.22); color: #fff; }
+.btn-theme-label { display: none; }
 
 @media (max-width: 640px) {
   .btn-theme {
@@ -1906,10 +1909,20 @@ input, textarea { font-family: inherit; }
     height: 100%;
     border-radius: 0;
     margin: 0;
-    padding: 6px 12px 4px;
+    padding: 6px 2px 4px;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 1px;
     font-size: 1.1rem;
+  }
+
+  .btn-theme-label {
+    display: block;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.7);
+    text-transform: capitalize;
+    line-height: 1;
   }
 }
 
@@ -1971,15 +1984,20 @@ input, textarea { font-family: inherit; }
 
   .sidebar-avatar { display: none; }
 
+  /* nav desaparece del layout: sus hijos pasan a ser items directos del sidebar */
   .sidebar-nav {
-    flex-direction: row;
+    display: contents;
+  }
+
+  /* Todos los items de la barra comparten ancho igual */
+  .sidebar-item,
+  .btn-theme,
+  .sidebar-logout {
     flex: 1;
-    gap: 0;
-    width: auto;
+    min-width: 0;
   }
 
   .sidebar-item {
-    flex: 1;
     flex-direction: column;
     padding: 6px 2px 4px;
     border-left: none;
@@ -1993,23 +2011,33 @@ input, textarea { font-family: inherit; }
   }
 
   .sidebar-item i { font-size: 1.1rem; margin-bottom: 1px; }
-  .sidebar-item > span:not(.sidebar-badge):not(.sidebar-tooltip) { font-size: 0.55rem; }
+  .sidebar-item > span:not(.sidebar-badge):not(.sidebar-tooltip) { font-size: 0.6rem; }
   .sidebar-item .sidebar-tooltip { display: none; }
   .sidebar-item .sidebar-badge { top: 4px; right: 6px; }
 
+  /* Logout: ocupa su slot igual que el resto */
   .sidebar-logout {
     margin-top: 0;
     padding: 0;
-    flex-shrink: 0;
+    display: flex;
   }
 
   .sidebar-logout a {
+    flex: 1;
+    display: flex;
     flex-direction: column;
-    padding: 6px 12px 4px;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 2px 4px;
     gap: 1px;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    transition: color 0.15s;
   }
 
-  .sidebar-logout a span { font-size: 0.55rem; }
+  .sidebar-logout a:hover { color: #fff; }
+  .sidebar-logout a i { font-size: 1.1rem; margin-bottom: 1px; }
+  .sidebar-logout a span { font-size: 0.6rem; }
 
   /* Área principal ocupa todo menos la barra inferior */
   .main-area {

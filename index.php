@@ -107,6 +107,7 @@ window.PANEL_CONFIG = {
     <!-- Toggle tema -->
     <button class="btn-theme" id="btn-theme" onclick="Theme.toggle()" title="Cambiar tema">
       <i class="fas fa-moon" id="theme-icon"></i>
+      <span class="btn-theme-label">Tema</span>
     </button>
 
     <!-- Logout -->
