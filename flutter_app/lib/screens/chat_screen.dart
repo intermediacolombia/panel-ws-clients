@@ -281,11 +281,53 @@ class _ChatScreenState extends State<ChatScreen> {
             case _ConvAction.reopen:
               error = await chat.reopen(conv.id);
               break;
+            case _ConvAction.rename:
+              _showRenameDialog(conv);
+              break;
           }
           if (error != null && mounted) _showError(error);
         },
       ),
     );
+  }
+
+  void _showRenameDialog(Conversation conv) {
+    final ctrl = TextEditingController(text: conv.contactName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar nombre'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 100,
+          decoration: const InputDecoration(
+            labelText: 'Nombre del contacto',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.words,
+          onSubmitted: (_) => _doRename(ctx, conv.id, ctrl),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => _doRename(ctx, conv.id, ctrl),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doRename(BuildContext ctx, int convId, TextEditingController ctrl) async {
+    final name = ctrl.text.trim();
+    if (name.isEmpty) return;
+    Navigator.pop(ctx);
+    final error = await context.read<ChatProvider>().updateContactName(convId, name);
+    if (error != null && mounted) _showError(error);
   }
 
   void _showTransferSheet() async {
@@ -942,7 +984,7 @@ class _AttachOption extends StatelessWidget {
 
 // ── Acciones de conversación ─────────────────────────────────────────────────
 
-enum _ConvAction { assign, release, resolve, transfer, reopen }
+enum _ConvAction { assign, release, resolve, transfer, reopen, rename }
 
 class _ActionsSheet extends StatelessWidget {
   final Conversation conversation;
@@ -1016,6 +1058,13 @@ class _ActionsSheet extends StatelessWidget {
                 subtitle: const Text('Marcar conversación como resuelta'),
                 onTap: () => onAction(_ConvAction.resolve),
               ),
+
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.indigo),
+              title: const Text('Editar nombre'),
+              subtitle: const Text('Cambiar el nombre del contacto'),
+              onTap: () => onAction(_ConvAction.rename),
+            ),
 
             if (status == 'resolved')
               ListTile(

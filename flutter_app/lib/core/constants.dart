@@ -14,7 +14,8 @@ class ApiConstants {
   static const String profilePicUrl    = '$baseUrl/api/profile_picture.php';
   static const String reopenUrl        = '$baseUrl/api/reopen.php';
   static const String startConvUrl     = '$baseUrl/api/start_conversation.php';
-  static const String fcmTokenUrl      = '$baseUrl/api/fcm_token.php';
+  static const String fcmTokenUrl       = '$baseUrl/api/fcm_token.php';
+  static const String updateContactUrl  = '$baseUrl/api/update_contact.php';
 
   static const Duration pollConversations = Duration(seconds: 5);
   static const Duration pollMessages      = Duration(seconds: 3);

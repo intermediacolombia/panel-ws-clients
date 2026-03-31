@@ -267,6 +267,18 @@ class ChatProvider extends ChangeNotifier {
     return res['error'] as String? ?? 'Error al reabrir.';
   }
 
+  Future<String?> updateContactName(int convId, String name) async {
+    final res = await ApiService.post(ApiConstants.updateContactUrl, {
+      'conversationId': convId,
+      'contactName':    name.trim(),
+    });
+    if (res['success'] == true) {
+      await refreshMessages(convId);
+      return null;
+    }
+    return res['error'] as String? ?? 'Error al actualizar el nombre.';
+  }
+
   Future<String?> transferTo(int convId, int targetAgentId) async {
     final res = await ApiService.post(ApiConstants.transferUrl, {
       'conversationId': convId,
