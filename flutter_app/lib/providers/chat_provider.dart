@@ -273,16 +273,8 @@ class ChatProvider extends ChangeNotifier {
       'contactName':    name.trim(),
     });
     if (res['success'] == true) {
-      // Recargar la conversación directamente para actualizar _activeConv
-      // sin depender del conteo de mensajes (refreshMessages solo notifica
-      // si cambia el número de mensajes, no el nombre).
-      final convRes = await ApiService.get(
-        ApiConstants.conversationUrl,
-        params: {'id': convId.toString()},
-      );
-      if (convRes['success'] == true) {
-        _activeConv = Conversation.fromJson(
-            convRes['conversation'] as Map<String, dynamic>);
+      if (_activeConv != null && _activeConv!.id == convId) {
+        _activeConv = _activeConv!.copyWith(contactName: name.trim());
         notifyListeners();
       }
       return null;

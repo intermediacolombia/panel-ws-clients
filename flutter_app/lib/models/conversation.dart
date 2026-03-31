@@ -31,6 +31,22 @@ class Conversation {
     required this.timeFormatted,
   });
 
+  Conversation copyWith({String? contactName}) => Conversation(
+    id:            id,
+    phone:         phone,
+    contactName:   contactName ?? this.contactName,
+    status:        status,
+    agentId:       agentId,
+    agentName:     agentName,
+    departmentId:  departmentId,
+    deptName:      deptName,
+    deptColor:     deptColor,
+    unreadCount:   unreadCount,
+    lastMessage:   lastMessage,
+    lastDirection: lastDirection,
+    timeFormatted: timeFormatted,
+  );
+
   factory Conversation.fromJson(Map<String, dynamic> json) {
     final phone = json['phone'] as String;
     final name  = json['contact_name'] as String?;
