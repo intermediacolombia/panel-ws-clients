@@ -813,8 +813,7 @@ if ($estado === 'asesor') {
         if (panelDevolvioBot($from, $clientId)) {
             wlog("[$clientId] Panel devolvió control al bot — retomando bot");
             guardarEstado($sesKey, null);
-            // Si el mensaje que disparó el cambio de estado es útil, registrarlo antes de retomar bot
-            notifyPanel($from, $nombre, $mensaje, $messageType, $clientId, '');
+            // No notificar al panel: la conv ya está en status=bot, no reabrir ni alertar agentes
             $respuesta = resetMenu($sesKey, $nombre);
         } else {
             // Registrar SIEMPRE el mensaje (incluye saludos, palabras de activación, etc.)
@@ -828,6 +827,45 @@ if ($estado === 'asesor') {
 } elseif (esReset($mensaje) || esSaludo($mensajeLower)) {
     wlog("[$clientId] Reset por: \"$mensaje\"");
     $respuesta = resetMenu($sesKey, $nombre);
+
+// ── C. Palabras clave directas (bandera invisible) ────────────
+} elseif (preg_match('/^\s*asesor\s*$/i', $mensajeLower)) {
+    if (empresaAbierta()) {
+        $respuesta =
+            "⏱️ *Un momento por favor...*\n\n" .
+            "Te vamos a contactar con un asesor que te ayudará con tu solicitud. 😊\n\n" .
+            "📌 Mientras tanto puedes visitar:\n" .
+            "🌐 https://www.intermediahost.co\n" .
+            "👤 http://clientes.intermediahost.co\n\n" .
+            "Escribe *Menú* si deseas volver al menú principal.";
+        guardarEstado($sesKey, 'asesor', ['area' => 'Ventas']);
+        wlog("[$clientId] KEYWORD ASESOR: $nombre ($from)");
+        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas');
+        notificarAsesor($nombre, $from, "Solicitud directa — palabra clave \"asesor\"", 'ventas');
+    } else {
+        $respuesta = mensajeAusenciaVentas();
+        guardarEstado($sesKey, 'menu_principal');
+        wlog("[$clientId] KEYWORD ASESOR fuera de horario: $nombre");
+    }
+
+} elseif (preg_match('/^\s*soporte\s*$/i', $mensajeLower)) {
+    if (empresaAbierta()) {
+        $respuesta =
+            "⏱️ *Un momento por favor...*\n\n" .
+            "Te vamos a conectar con soporte técnico. 🛠️\n\n" .
+            "📌 *Accesos útiles mientras esperas:*\n" .
+            "👤 Área de Cliente: http://clientes.intermediahost.co\n" .
+            "🎫 Crear Ticket: https://clientes.intermediahost.co/submitticket.php\n\n" .
+            "Escribe *Menú* si deseas volver al menú principal.";
+        guardarEstado($sesKey, 'asesor', ['area' => 'Soporte']);
+        wlog("[$clientId] KEYWORD SOPORTE: $nombre ($from)");
+        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte Técnico');
+        notificarAsesor($nombre, $from, "Solicitud directa — palabra clave \"soporte\"", 'soporte');
+    } else {
+        $respuesta = mensajeAusenciaSoporte();
+        guardarEstado($sesKey, 'menu_principal');
+        wlog("[$clientId] KEYWORD SOPORTE fuera de horario: $nombre");
+    }
 
 // ── D. Menú principal ─────────────────────────────────────────
 } elseif ($estado === 'menu_principal') {

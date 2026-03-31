@@ -108,8 +108,10 @@ try {
         $convId    = (int)$conv['id'];
         $deptIdFor = $conv['department_id'];
 
-        // Si estaba resuelta o en bot, reactivar
-        if (in_array($conv['status'], ['resolved', 'bot'])) {
+        // Si estaba resuelta → reactivar siempre.
+        // Si estaba en bot → solo reactivar si se especifica área (usuario solicitó asesor desde el bot).
+        // Sin área = mensaje de tránsito bot→bot; no cambiar estado ni alertar agentes.
+        if ($conv['status'] === 'resolved' || ($conv['status'] === 'bot' && $area !== '')) {
             $upd = $pdo->prepare(
                 'UPDATE conversations
                  SET status = ?, agent_id = NULL, assigned_at = NULL,
@@ -125,6 +127,9 @@ try {
                 ->execute([$name, $convId]);
         }
     }
+
+    // Bandera: conv en modo bot sin solicitud de asesor → silenciar contadores y notificaciones
+    $isBotSilent = isset($conv) && $conv['status'] === 'bot' && $area === '';
 
     // 3. Registrar mensaje entrante
     $msgType = match($messageType) {
@@ -146,16 +151,23 @@ try {
     $insMsq->execute([$convId, 'in', $msgType, $msgContent, $fileUrlVal, $captionVal, 'sent', $now]);
 
     // 4. Actualizar contadores de la conversación
-    $pdo->prepare(
-        'UPDATE conversations
-         SET unread_count  = unread_count + 1,
-             last_message_at = ?,
-             updated_at      = ?
-         WHERE id = ?'
-    )->execute([$now, $now, $convId]);
+    // En modo bot-silencioso no incrementar unread (agentes no deben ver el badge)
+    if ($isBotSilent) {
+        $pdo->prepare(
+            'UPDATE conversations SET last_message_at = ?, updated_at = ? WHERE id = ?'
+        )->execute([$now, $now, $convId]);
+    } else {
+        $pdo->prepare(
+            'UPDATE conversations
+             SET unread_count  = unread_count + 1,
+                 last_message_at = ?,
+                 updated_at      = ?
+             WHERE id = ?'
+        )->execute([$now, $now, $convId]);
+    }
 
     // 5. Crear notificaciones para agentes del departamento
-    if ($deptIdFor !== null) {
+    if ($deptIdFor !== null && !$isBotSilent) {
         $agStmt = $pdo->prepare(
             'SELECT a.id, a.fcm_token FROM agents a
              JOIN agent_departments ad ON ad.agent_id = a.id

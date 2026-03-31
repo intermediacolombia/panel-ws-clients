@@ -918,8 +918,14 @@ if (empty($mensaje)) {
     $estadoTemp  = $sesDataTemp['estado'] ?? null;
 
     if ($estadoTemp === 'asesor') {
-        notifyPanel($phoneForPanel, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
-        wlog("[$clientId] Multimedia con asesor activo — notificando panel");
+        if (panelDevolvioAlBot($from)) {
+            // Panel ya devolvió control al bot: no notificar ni reabrir chat
+            wlog("[$clientId] Multimedia ignorada — panel ya está en bot");
+            guardarEstado($sesKey, null);
+        } else {
+            notifyPanel($phoneForPanel, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
+            wlog("[$clientId] Multimedia con asesor activo — notificando panel");
+        }
         http_response_code(200); exit('OK');
     }
 
