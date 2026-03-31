@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -832,8 +834,8 @@ class _Bubble extends StatelessWidget {
             else if (msg.isDocument && msg.fileUrl != null)
               _DocContent(name: msg.fileName ?? 'Documento', url: msg.fileUrl!)
             else
-              SelectableText(
-                msg.displayText,
+              _LinkText(
+                text: msg.displayText,
                 style: TextStyle(
                   fontSize: 15,
                   color: isDark ? Colors.white.withOpacity(0.87) : const Color(0xFF111B21),
@@ -890,6 +892,97 @@ class _Bubble extends StatelessWidget {
       return '';
     }
   }
+}
+
+// ── Texto con links/emails clickeables ──────────────────────────────────────
+
+class _LinkText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  const _LinkText({required this.text, required this.style});
+
+  @override
+  State<_LinkText> createState() => _LinkTextState();
+}
+
+class _LinkTextState extends State<_LinkText> {
+  final List<TapGestureRecognizer> _recognizers = [];
+  late List<InlineSpan> _spans;
+
+  static final _re = RegExp(
+    r'(https?://[^\s]+|www\.[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}[^\s]*'
+    r'|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})',
+    caseSensitive: false,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _spans = _buildSpans(widget.text);
+  }
+
+  @override
+  void didUpdateWidget(_LinkText old) {
+    super.didUpdateWidget(old);
+    if (old.text != widget.text) {
+      for (final r in _recognizers) r.dispose();
+      _recognizers.clear();
+      _spans = _buildSpans(widget.text);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) r.dispose();
+    super.dispose();
+  }
+
+  List<InlineSpan> _buildSpans(String text) {
+    final spans = <InlineSpan>[];
+    int last = 0;
+    for (final m in _re.allMatches(text)) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start)));
+      }
+      final raw = m.group(0)!;
+      // Quitar puntuación final que no es parte del enlace
+      final trail = RegExp(r'[.,;:!?)\]>]+$').firstMatch(raw);
+      final clean = trail != null ? raw.substring(0, trail.start) : raw;
+      final extra = trail != null ? raw.substring(trail.start) : '';
+
+      final isEmail = clean.contains('@') && !clean.startsWith('http');
+      final uri = Uri.tryParse(
+        isEmail ? 'mailto:$clean' : (clean.startsWith('www.') ? 'https://$clean' : clean),
+      );
+      if (uri != null) {
+        final rec = TapGestureRecognizer()
+          ..onTap = () async {
+            if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+          };
+        _recognizers.add(rec);
+        spans.add(TextSpan(
+          text: clean,
+          recognizer: rec,
+          style: const TextStyle(
+            color: Color(0xFF1A73E8),
+            decoration: TextDecoration.underline,
+            decorationColor: Color(0xFF1A73E8),
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(text: clean));
+      }
+      if (extra.isNotEmpty) spans.add(TextSpan(text: extra));
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return spans;
+  }
+
+  @override
+  Widget build(BuildContext context) => SelectableText.rich(
+    TextSpan(children: _spans, style: widget.style),
+  );
 }
 
 class _ImageContent extends StatelessWidget {

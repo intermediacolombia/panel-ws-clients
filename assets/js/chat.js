@@ -290,7 +290,7 @@ const Chat = (() => {
              onclick="Chat.openImageModal('${_escAttr(msg.file_url)}')" loading="lazy">
       </div>`;
       if (msg.caption) {
-        innerHtml += `<div class="bubble-caption">${_escHtml(msg.caption)}</div>`;
+        innerHtml += `<div class="bubble-caption">${_linkify(msg.caption)}</div>`;
       }
     } else if (msg.type === 'document' && msg.file_url) {
       const size = msg.file_size ? _formatFileSize(msg.file_size) : '';
@@ -305,11 +305,11 @@ const Chat = (() => {
         </a>
       </div>`;
       if (msg.caption) {
-        innerHtml += `<div class="bubble-caption">${_escHtml(msg.caption)}</div>`;
+        innerHtml += `<div class="bubble-caption">${_linkify(msg.caption)}</div>`;
       }
     } else {
-      // Texto
-      innerHtml += `<div class="bubble-text">${_escHtml(msg.content)}</div>`;
+      // Texto con enlaces clickeables
+      innerHtml += `<div class="bubble-text">${_linkify(msg.content)}</div>`;
     }
 
     // Meta
@@ -803,6 +803,34 @@ const Chat = (() => {
   function _autoResize(ta) {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
+  }
+
+  // ── Linkify: detecta URLs y emails y los convierte en <a> ──
+  function _linkify(text) {
+    if (!text) return '';
+    const re = /(https?:\/\/[^\s<>"']+|www\.[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}[^\s<>"']*|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g;
+
+    const parts = [];
+    let last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) parts.push({ t: 'txt', v: text.slice(last, m.index) });
+      // Quitar puntuación final que no es parte del enlace
+      const trailMatch = m[0].match(/[.,;:!?)\]>]+$/);
+      const trail = trailMatch ? trailMatch[0] : '';
+      const raw   = m[0].slice(0, m[0].length - trail.length);
+      parts.push({ t: 'url', v: raw });
+      if (trail) parts.push({ t: 'txt', v: trail });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parts.push({ t: 'txt', v: text.slice(last) });
+
+    return parts.map(p => {
+      if (p.t === 'txt') return _escHtml(p.v);
+      const isEmail = p.v.includes('@') && !p.v.startsWith('http');
+      const href    = isEmail ? 'mailto:' + p.v
+                              : (p.v.startsWith('www.') ? 'https://' + p.v : p.v);
+      return `<a href="${_escAttr(href)}" target="_blank" rel="noopener noreferrer" class="msg-link">${_escHtml(p.v)}</a>`;
+    }).join('');
   }
 
   // ── Helpers ────────────────────────────────────────────────
