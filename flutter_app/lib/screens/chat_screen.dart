@@ -957,7 +957,9 @@ class _LinkTextState extends State<_LinkText> {
       if (uri != null) {
         final rec = TapGestureRecognizer()
           ..onTap = () async {
-            if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+            try {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } catch (_) {}
           };
         _recognizers.add(rec);
         spans.add(TextSpan(
