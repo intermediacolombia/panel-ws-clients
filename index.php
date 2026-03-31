@@ -26,7 +26,7 @@ $agentInitial = mb_strtoupper(mb_substr($currentAgent['name'], 0, 1, 'UTF-8'), '
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="assets/css/panel.css">
+  <link rel="stylesheet" href="assets/css/panel.css?v=<?= filemtime(__DIR__ . '/assets/css/panel.css') ?>">
   <!-- Aplicar tema antes de renderizar para evitar flash -->
   <script>(function(){var t=localStorage.getItem('panel_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})()</script>
 </head>
@@ -324,10 +324,10 @@ const ProfileModal = (() => {
   return { open, openFromEl, close };
 })();
 </script>
-<script src="assets/js/notify.js"></script>
-<script src="assets/js/realtime.js"></script>
-<script src="assets/js/chat.js"></script>
-<script src="assets/js/app.js"></script>
+<script src="assets/js/notify.js?v=<?= filemtime(__DIR__ . '/assets/js/notify.js') ?>"></script>
+<script src="assets/js/realtime.js?v=<?= filemtime(__DIR__ . '/assets/js/realtime.js') ?>"></script>
+<script src="assets/js/chat.js?v=<?= filemtime(__DIR__ . '/assets/js/chat.js') ?>"></script>
+<script src="assets/js/app.js?v=<?= filemtime(__DIR__ . '/assets/js/app.js') ?>"></script>
 
 </body>
 </html>
