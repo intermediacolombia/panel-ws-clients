@@ -1,3 +1,5 @@
+int _parseInt(dynamic v) => v is int ? v : int.parse(v.toString());
+
 class Agent {
   final int id;
   final String username;
@@ -16,7 +18,7 @@ class Agent {
   });
 
   factory Agent.fromJson(Map<String, dynamic> json) => Agent(
-    id:          json['id'] as int,
+    id:          _parseInt(json['id']),
     username:    json['username'] as String,
     name:        json['name'] as String,
     email:       (json['email'] as String?) ?? '',
@@ -43,7 +45,7 @@ class AgentDept {
   const AgentDept({required this.id, required this.slug, required this.name});
 
   factory AgentDept.fromJson(Map<String, dynamic> json) => AgentDept(
-    id:   json['id'] as int,
+    id:   _parseInt(json['id']),
     slug: json['slug'] as String,
     name: json['name'] as String,
   );

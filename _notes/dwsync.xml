@@ -12,9 +12,10 @@
 <file name="schema.sql" server="intermediahost.co/panelws.intermediahost.co/" local="134193589868728492" remote="134193747000000000" Dst="0" />
 <file name="sse.php" server="intermediahost.co/panelws.intermediahost.co/" local="134192053394644499" remote="134193747000000000" Dst="0" />
 <file name="webhook.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193586581702801" remote="134193747000000000" Dst="0" />
-<file name=".gitignore" server="intermediahost.co/panelws.intermediahost.co/" local="134193665890296621" remote="134193746400000000" Dst="0" />
+<file name=".gitignore" server="intermediahost.co/panelws.intermediahost.co/" local="134193757972789492" remote="134193808800000000" Dst="0" />
 <file name="config-general.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193746340158280" remote="134193747000000000" Dst="0" />
 <file name="install.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193613226364440" remote="134193747000000000" Dst="0" />
-<file name="webhook-activgym.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193701942751129" remote="134193747000000000" Dst="0" />
+<file name="webhook-activgym.php" server="intermediahost.co/panelws.intermediahost.co/" local="134193793725770704" remote="134193809400000000" Dst="0" />
 <file name="firebase-service-account.json" server="intermediahost.co/panelws.intermediahost.co/" local="134192992797112438" remote="134193752400000000" Dst="0" />
+<file name="update.php" server="intermediahost.co/panelws.intermediahost.co/" local="134170397962110457" remote="134193809400000000" Dst="0" />
 </dwsync>
