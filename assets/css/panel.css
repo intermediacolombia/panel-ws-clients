@@ -1308,8 +1308,10 @@ input, textarea { font-family: inherit; }
   background: var(--blanco);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: 20px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
