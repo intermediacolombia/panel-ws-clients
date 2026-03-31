@@ -259,6 +259,9 @@ const Chat = (() => {
     const container = el.messages();
     if (!container) return;
 
+    // Evitar duplicados: si el mensaje ya existe, no agregar
+    if (msg.id && _messages.some(m => m.id === msg.id)) return;
+
     // Separador de fecha si cambia el día
     const msgDate = msg.created_at ? msg.created_at.substring(0, 10) : '';
     const lastMsg = _messages[_messages.length - 1];
@@ -531,6 +534,8 @@ const Chat = (() => {
         removeFile();
         // Agregar burbuja
         appendMessage(json.message);
+        // Mover conversación al tope (tipo WhatsApp)
+        if (window.App) App.moveConvToTop(_conv.id, text || null);
         // Actualizar status de conv si cambió a attending
         if (_conv.status === 'pending' && json.message.status === 'sent') {
           _conv.status   = 'attending';
@@ -550,6 +555,8 @@ const Chat = (() => {
     } finally {
       _sending = false;
       _disableComposer(false);
+      const ta = el.textarea();
+      if (ta) ta.focus();
     }
   }
 
@@ -783,6 +790,87 @@ const Chat = (() => {
     if (m) m.classList.remove('open');
   }
 
+  function toggleEmojiPicker() {
+    const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
+
+    if (picker.classList.contains('hidden')) {
+      closeAttachMenu();
+      if (picker.innerHTML === '') initEmojiPicker();
+      picker.classList.remove('hidden');
+    } else {
+      picker.classList.add('hidden');
+    }
+  }
+
+  function initEmojiPicker() {
+    const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
+
+    const categories = [
+      { name: 'Recientes', icon: 'fa-clock', emojis: [] },
+      { name: 'Caritas', icon: 'fa-grin', emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'] },
+      { name: 'Gestos', icon: 'fa-hand-paper', emojis: ['👍','👎','👊','✊','🤛','🤜','🤝','👏','🙌','👐','🤲','🤞','✌️','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐','🖖','👋','🤏','✍️','🙏','💪','🦾','🦿','🦵','🦶','👂','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄'] },
+      { name: 'Corazones', icon: 'fa-heart', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️'] },
+      { name: 'Objetos', icon: 'fa-lightbulb', emojis: ['💼','📁','📂','📅','📆','📊','📈','📉','📋','📌','📎','🔗','📝','✏️','🔍','🔎','💡','🔔','📣','💬','💭','🗯','♠️','♣️','♥️','♦️','🎯','🎮','🎲','🧩','🔮','🛍','📱','💻','⌨️','🖥','🖨','💾','💿','📀','🎬','📷','📹','🎥','📽','🎞','📞','☎️','📟','📠','📺','📻','🧭','⏰','⏱','⏲','⏳','⌛','🔑','🗝','🔒','🔓','🔐','🔏'] },
+      { name: 'Símbolos', icon: 'fa-star', emojis: ['✅','❌','❓','❗','‼️','⁉️','💯','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔶','🔷','🔸','🔹','💠','🔘','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🏧','♻️','⚜️','🔱','📛','🔰','♟','🃏','🎴','🀄','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'] },
+    ];
+
+    let html = '<div class="emoji-categories">';
+    categories.forEach((cat, i) => {
+      html += `<button class="emoji-cat-btn ${i === 1 ? 'active' : ''}" data-cat="${i}" title="${cat.name}">
+        <i class="fas ${cat.icon}"></i>
+      </button>`;
+    });
+    html += '</div><div class="emoji-grid" id="emoji-grid"></div>';
+
+    picker.innerHTML = html;
+
+    picker.querySelectorAll('.emoji-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        picker.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderEmojiCategory(parseInt(btn.dataset.cat));
+      });
+    });
+
+    renderEmojiCategory(1);
+  }
+
+  function renderEmojiCategory(catIdx) {
+    const categories = [
+      { emojis: [] },
+      { emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'] },
+      { emojis: ['👍','👎','👊','✊','🤛','🤜','🤝','👏','🙌','👐','🤲','🤞','✌️','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐','🖖','👋','🤏','✍️','🙏','💪','🦾','🦿','🦵','🦶','👂','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄'] },
+      { emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️'] },
+      { emojis: ['💼','📁','📂','📅','📆','📊','📈','📉','📋','📌','📎','🔗','📝','✏️','🔍','🔎','💡','🔔','📣','💬','💭','🗯','♠️','♣️','♥️','♦️','🎯','🎮','🎲','🧩','🔮','🛍','📱','💻','⌨️','🖥','🖨','💾','💿','📀','🎬','📷','📹','🎥','📽','🎞','📞','☎️','📟','📠','📺','📻','🧭','⏰','⏱','⏲','⏳','⌛','🔑','🗝','🔒','🔓','🔐','🔏'] },
+      { emojis: ['✅','❌','❓','❗','‼️','⁉️','💯','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔶','🔷','🔸','🔹','💠','🔘','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🏧','♻️','⚜️','🔱','📛','🔰','♟','🃏','🎴','🀄','🕐','🕑','🕒','🕓','🕔','🕕','�️','🕗','🕘','🕙','🕚','🕛'] },
+    ];
+
+    const grid = document.getElementById('emoji-grid');
+    if (!grid) return;
+
+    grid.innerHTML = categories[catIdx].emojis.map(e =>
+      `<button class="emoji-btn" onclick="Chat.insertEmoji('${e}')">${e}</button>`
+    ).join('');
+  }
+
+  function insertEmoji(emoji) {
+    const ta = el.textarea();
+    if (!ta) return;
+
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+
+    ta.value = text.substring(0, start) + emoji + text.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + emoji.length;
+    ta.focus();
+
+    _autoResize(ta);
+    document.getElementById('emoji-picker')?.classList.add('hidden');
+  }
+
   function triggerFileInput(type) {
     closeAttachMenu();
     const input = document.createElement('input');
@@ -898,6 +986,8 @@ const Chat = (() => {
     toggleAttachMenu,
     closeAttachMenu,
     triggerFileInput,
+    toggleEmojiPicker,
+    insertEmoji,
     toggleInfo,
     openRenameModal,
     closeRenameModal,

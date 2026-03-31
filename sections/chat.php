@@ -72,6 +72,15 @@
               </div>
             </div>
 
+            <!-- Emoji picker -->
+            <div class="emoji-picker-wrap">
+              <button class="btn-emoji" id="btn-emoji"
+                      onclick="Chat.toggleEmojiPicker()" title="Insertar emoji">
+                <i class="far fa-smile"></i>
+              </button>
+              <div class="emoji-picker hidden" id="emoji-picker"></div>
+            </div>
+
             <!-- Textarea -->
             <textarea
               id="chat-textarea"

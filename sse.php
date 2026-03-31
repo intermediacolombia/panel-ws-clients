@@ -110,17 +110,18 @@ while (true) {
         $sinceStr = date('Y-m-d H:i:s', (int)$lastCheck);
 
         // ── Mensajes nuevos en conversaciones del agente ──
+        // Incluye mensajes entrantes (in) y salientes del propio agente (out)
         if ($agentRole === 'supervisor') {
             $msgStmt = $pdo->prepare(
                 'SELECT m.*, c.phone, c.contact_name, c.conv_key, c.status AS conv_status
                  FROM messages m
                  JOIN conversations c ON c.id = m.conversation_id
                  WHERE m.created_at > ?
-                   AND m.direction = ?
+                   AND (m.direction = ? OR (m.direction = ? AND m.agent_id = ?))
                  ORDER BY m.created_at ASC
                  LIMIT 50'
             );
-            $msgStmt->execute([$sinceStr, 'in']);
+            $msgStmt->execute([$sinceStr, 'in', 'out', $agentId]);
         } else {
             if (empty($deptIds)) {
                 $msgStmt = null;
@@ -132,7 +133,7 @@ while (true) {
                      FROM messages m
                      JOIN conversations c ON c.id = m.conversation_id
                      WHERE m.created_at > ?
-                       AND m.direction = ?
+                       AND (m.direction = ? OR (m.direction = ? AND m.agent_id = ?))
                        AND (
                          c.department_id IN ({$placeholders})
                          OR c.agent_id = ?
@@ -140,7 +141,7 @@ while (true) {
                      ORDER BY m.created_at ASC
                      LIMIT 50"
                 );
-                $params = array_merge([$sinceStr, 'in'], $deptIds, [$agentId]);
+                $params = array_merge([$sinceStr, 'in', 'out', $agentId], $deptIds, [$agentId]);
                 $msgStmt->execute($params);
             }
         }

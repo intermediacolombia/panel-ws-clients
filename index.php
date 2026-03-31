@@ -161,8 +161,91 @@ window.PANEL_CONFIG = {
   </div>
 </div>
 
+<!-- ── Modal de confirmación personalizado ──────────────────── -->
+<div class="confirm-modal-overlay hidden" id="confirm-modal-overlay" onclick="ConfirmModal.cancel()">
+  <div class="confirm-modal" onclick="event.stopPropagation()">
+    <div class="confirm-modal-icon" id="confirm-modal-icon"></div>
+    <div class="confirm-modal-title" id="confirm-modal-title">Confirmar acción</div>
+    <div class="confirm-modal-message" id="confirm-modal-message"></div>
+    <div class="confirm-modal-buttons">
+      <button class="confirm-btn confirm-btn-cancel" id="confirm-btn-cancel" onclick="ConfirmModal.cancel()">
+        <i class="fas fa-times"></i> Cancelar
+      </button>
+      <button class="confirm-btn confirm-btn-confirm" id="confirm-btn-confirm" onclick="ConfirmModal.confirm()">
+        <i class="fas fa-check"></i> Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Scripts ────────────────────────────────────────────── -->
 <script>
+const ConfirmModal = (() => {
+  let _resolve = null;
+
+  function show({ title, message, icon = 'warning', confirmText = 'Confirmar', confirmClass = '' }) {
+    return new Promise((resolve) => {
+      _resolve = resolve;
+
+      const overlay  = document.getElementById('confirm-modal-overlay');
+      const iconEl   = document.getElementById('confirm-modal-icon');
+      const titleEl  = document.getElementById('confirm-modal-title');
+      const msgEl    = document.getElementById('confirm-modal-message');
+      const btnConf  = document.getElementById('confirm-btn-confirm');
+      const btnCancel = document.getElementById('confirm-btn-cancel');
+
+      if (titleEl)  titleEl.textContent = title;
+      if (msgEl)    msgEl.textContent   = message;
+
+      iconEl.className = 'confirm-modal-icon ' + icon;
+      const icons = {
+        warning: '<i class="fas fa-exclamation-triangle"></i>',
+        danger:  '<i class="fas fa-exclamation-circle"></i>',
+        info:    '<i class="fas fa-info-circle"></i>',
+        success: '<i class="fas fa-check-circle"></i>',
+      };
+      iconEl.innerHTML = icons[icon] || icons.warning;
+
+      btnConf.className = 'confirm-btn confirm-btn-confirm' + (confirmClass ? ' ' + confirmClass : '');
+      btnConf.innerHTML = '<i class="fas fa-check"></i> ' + confirmText;
+
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        btnCancel.focus();
+      }
+    });
+  }
+
+  function confirm() {
+    if (_resolve) {
+      _resolve(true);
+      _resolve = null;
+      close();
+    }
+  }
+
+  function cancel() {
+    if (_resolve) {
+      _resolve(false);
+      _resolve = null;
+      close();
+    }
+  }
+
+  function close() {
+    const overlay = document.getElementById('confirm-modal-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const overlay = document.getElementById('confirm-modal-overlay');
+    if (!overlay || overlay.classList.contains('hidden')) return;
+    if (e.key === 'Escape') cancel();
+  });
+
+  return { show, confirm, cancel, close };
+})();
+
 const Theme = (() => {
   function _apply(dark) {
     if (dark) {

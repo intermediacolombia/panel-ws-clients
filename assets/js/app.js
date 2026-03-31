@@ -175,7 +175,7 @@ const App = (() => {
     const name     = c.contact_name || c.phone;
     const time     = c.time_formatted || '';
     const preview  = c.last_message ? _truncate(c.last_message, 42) : '';
-    const unread   = parseInt(c.unread_count) || 0;
+    const unread   = (c.id === _currentConvId) ? 0 : (parseInt(c.unread_count) || 0);
     const area     = c.area_label || '';
     const agentLbl = c.agent_name ? 'Agente: ' + c.agent_name : '';
 
@@ -323,19 +323,20 @@ const App = (() => {
   // ── Acciones sobre conversaciones ─────────────────────────
   async function handleAction(action, convId) {
     const labels = {
-      assign:  { url: '/api/assign.php',  msg: '¿Asignarte esta conversación?' },
-      resolve: { url: '/api/resolve.php', msg: '¿Marcar conversación como resuelta?' },
-      release: { url: '/api/release.php', msg: '¿Devolver el control al bot? Se enviará mensaje de despedida.' },
-      reopen:  { url: '/api/reopen.php',  msg: '¿Reabrir esta conversación y asignártela?' },
+      assign:  { title: 'Asignar conversación', msg: '¿Asignarte esta conversación?', icon: 'info', confirmText: 'Asignarme' },
+      resolve: { title: 'Resolver conversación', msg: '¿Marcar conversación como resuelta?', icon: 'success', confirmText: 'Resolver' },
+      release: { title: 'Liberar al bot', msg: '¿Devolver el control al bot? Se enviará mensaje de despedida.', icon: 'warning', confirmText: 'Liberar' },
+      reopen:  { title: 'Reabrir conversación', msg: '¿Reabrir esta conversación y asignártela?', icon: 'info', confirmText: 'Reabrir' },
     };
 
     const cfg = labels[action];
     if (!cfg) return;
 
-    if (!confirm(cfg.msg)) return;
+    const confirmed = await ConfirmModal.show(cfg);
+    if (!confirmed) return;
 
     try {
-      const res  = await fetch(cfg.url, {
+      const res  = await fetch('/api/' + action + '.php', {
         method:      'POST',
         credentials: 'include',
         headers: {
@@ -348,7 +349,6 @@ const App = (() => {
 
       if (json.success) {
         Notify.showToast('Acción realizada correctamente.', 'success');
-        // Recargar la conversación si es la activa
         if (convId === _currentConvId) {
           await Chat.load(convId);
         }
@@ -458,15 +458,22 @@ const App = (() => {
 
   // ── Realtime handlers ──────────────────────────────────────
   function _onNewMessage(msg) {
-    // Si es la conversación activa, agregar burbuja
-    if (msg.conversation_id && parseInt(msg.conversation_id) === _currentConvId) {
-      Chat.appendMessage(msg);
-    } else {
-      // Solo incrementar badge si no es nuestra propia conversación activa
-      const conv = _conversations.find(c => c.id === parseInt(msg.conversation_id));
-      if (conv && parseInt(msg.conversation_id) !== _currentConvId) {
-        conv.unread_count = (conv.unread_count || 0) + 1;
-        _updateConvItemUnread(conv.id, conv.unread_count);
+    const convId   = parseInt(msg.conversation_id);
+    const isActive = convId === _currentConvId;
+    const isOutgoing = msg.direction === 'out';
+
+    // Mover la conversación al tope de la lista (comportamiento tipo WhatsApp)
+    const idx = _conversations.findIndex(c => c.id === convId);
+    if (idx >= 0) {
+      const [conv] = _conversations.splice(idx, 1);
+      if (msg.content)    conv.last_message   = msg.content;
+      if (msg.created_at) conv.time_formatted = msg.created_at.substring(11, 16);
+      if (!isActive && !isOutgoing) conv.unread_count = (conv.unread_count || 0) + 1;
+      _conversations.unshift(conv);
+      _renderConvList(_conversations);
+
+      // Solo mostrar notificación para mensajes entrantes cuando no estamos en la conversación
+      if (!isActive && !isOutgoing) {
         Notify.playSound();
         Notify.showNotification(
           'Nuevo mensaje de ' + (conv.contact_name || conv.phone),
@@ -475,12 +482,48 @@ const App = (() => {
         );
       }
     }
+
+    // Si es la conversación activa, agregar la burbuja (tanto in como out)
+    if (isActive) Chat.appendMessage(msg);
+  }
+
+  // Mueve una conversación al tope tras enviar un mensaje propio
+  function moveConvToTop(convId, lastMsg) {
+    const idx = _conversations.findIndex(c => c.id === convId);
+    if (idx <= 0) return; // ya está primera o no existe
+    const [conv] = _conversations.splice(idx, 1);
+    if (lastMsg != null) conv.last_message = lastMsg;
+    _conversations.unshift(conv);
+    _renderConvList(_conversations);
   }
 
   function _onConvUpdate(conv) {
-    updateConversationInList(conv);
-    // Actualizar conteos
-    loadConversations({ status: _activeTab });
+    // conv.id viene como string desde el SSE (PDO sin cast), normalizar
+    const convId = parseInt(conv.id);
+    const idx = _conversations.findIndex(c => c.id === convId);
+    if (idx === -1) {
+      // No está en la lista actual (distinto tab/filtro), ignorar
+      _renderConvList(_conversations);
+      return;
+    }
+
+    // Actualizar solo campos escalares conocidos; NO pisar time_formatted ni last_message
+    // porque el SSE no los incluye (son calculados en PHP)
+    const local = _conversations[idx];
+    if (conv.status     !== undefined) local.status       = conv.status;
+    if (conv.agent_id   !== undefined) local.agent_id     = conv.agent_id   !== null ? parseInt(conv.agent_id)   : null;
+    if (conv.agent_name !== undefined) local.agent_name   = conv.agent_name;
+    if (conv.contact_name)             local.contact_name = conv.contact_name;
+    if (conv.unread_count !== undefined) local.unread_count = parseInt(conv.unread_count) || 0;
+
+    // Mover al tope si no está ya
+    if (idx > 0) {
+      _conversations.splice(idx, 1);
+      _conversations.unshift(local);
+    }
+
+    _renderConvList(_conversations);
+    if (convId === _currentConvId) Chat.updateConv(conv);
   }
 
   function _onNotification(notif) {
@@ -493,6 +536,8 @@ const App = (() => {
       notif.message || '',
       notif.conversation_id,
     );
+    // Refrescar el dropdown para que aparezca el ítem inmediatamente
+    loadNotifications();
   }
 
   // ── Fotos de perfil en lista ───────────────────────────────
@@ -595,11 +640,14 @@ const App = (() => {
         openConversation(json.conversationId);
         Notify.showToast('Conversación iniciada.', 'success');
       } else if (res.status === 409) {
-        // Ya existe conversación activa — pregunta si la abre
         closeModal('modal-new-conv');
-        if (confirm('Ya existe una conversación activa con ese número. ¿Quieres abrirla?')) {
-          openConversation(json.conversationId);
-        }
+        const open = await ConfirmModal.show({
+          title: 'Conversación existente',
+          msg: 'Ya existe una conversación activa con ese número. ¿Quieres abrirla?',
+          icon: 'info',
+          confirmText: 'Abrir',
+        });
+        if (open) openConversation(json.conversationId);
       } else {
         showErr(json.error || 'Error al enviar.');
       }
@@ -629,6 +677,7 @@ const App = (() => {
     markAllNotifsRead,
     openNewConversation,
     sendNewConversation,
+    moveConvToTop,
   };
 })();
 
