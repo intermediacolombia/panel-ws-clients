@@ -338,24 +338,29 @@ void _showProfileModal(BuildContext context, String phone, String initials, Colo
     context: context,
     builder: (ctx) => Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(32),
+      insetPadding: const EdgeInsets.all(24),
       child: GestureDetector(
         onTap: () => Navigator.pop(ctx),
-        child: CachedNetworkImage(
-          imageUrl: url,
-          httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
-          imageBuilder: (_, p) => CircleAvatar(radius: 90, backgroundImage: p),
-          placeholder: (_, __) => CircleAvatar(
-            radius: 90,
-            backgroundColor: color.withOpacity(0.2),
-            child: Text(initials,
-                style: TextStyle(color: color, fontSize: 52, fontWeight: FontWeight.bold)),
-          ),
-          errorWidget: (_, __, ___) => CircleAvatar(
-            radius: 90,
-            backgroundColor: color.withOpacity(0.2),
-            child: Text(initials,
-                style: TextStyle(color: color, fontSize: 52, fontWeight: FontWeight.bold)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
+            imageBuilder: (_, p) => Image(image: p, fit: BoxFit.contain),
+            placeholder: (_, __) => Container(
+              width: 280, height: 280,
+              color: color.withOpacity(0.2),
+              alignment: Alignment.center,
+              child: Text(initials,
+                  style: TextStyle(color: color, fontSize: 72, fontWeight: FontWeight.bold)),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              width: 280, height: 280,
+              color: color.withOpacity(0.2),
+              alignment: Alignment.center,
+              child: Text(initials,
+                  style: TextStyle(color: color, fontSize: 72, fontWeight: FontWeight.bold)),
+            ),
           ),
         ),
       ),
