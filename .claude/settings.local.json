@@ -3,7 +3,9 @@
     "allow": [
       "Bash(php -l D:/panel-agentes/webhook.php)",
       "Bash(php -l D:/panel-agentes/api/settings.php)",
-      "Bash(php -l D:/panel-agentes/sections/settings.php)"
+      "Bash(php -l D:/panel-agentes/sections/settings.php)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
