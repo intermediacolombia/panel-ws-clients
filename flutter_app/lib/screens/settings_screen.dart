@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -17,13 +18,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingQR = true;
   final _newReplyCtrl = TextEditingController();
 
-  bool _notifGranted = false;
+  bool _notifGranted   = false;
+  bool _batteryIgnored = false;
 
   @override
   void initState() {
     super.initState();
     _loadQuickReplies();
     _checkNotifPermission();
+    _checkBatteryOpt();
   }
 
   Future<void> _checkNotifPermission() async {
@@ -33,11 +36,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleNotifPermission() async {
     if (_notifGranted) {
-      // No se puede revocar programáticamente — llevar a ajustes del sistema
       await openAppSettings();
     } else {
       final status = await Permission.notification.request();
       if (mounted) setState(() => _notifGranted = status.isGranted);
+    }
+  }
+
+  Future<void> _checkBatteryOpt() async {
+    if (!Platform.isAndroid) return;
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (mounted) setState(() => _batteryIgnored = status.isGranted);
+  }
+
+  Future<void> _requestBatteryOpt() async {
+    if (!Platform.isAndroid) return;
+    if (_batteryIgnored) {
+      // Ya está activo — llevar a ajustes por si quiere revertirlo
+      await openAppSettings();
+    } else {
+      final status = await Permission.ignoreBatteryOptimizations.request();
+      if (mounted) setState(() => _batteryIgnored = status.isGranted);
     }
   }
 
@@ -200,6 +219,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           const SizedBox(height: 24),
+
+          // ── Optimización de batería (solo Android) ───────────
+          if (Platform.isAndroid) ...[
+            _SectionHeader(title: 'Batería y segundo plano', icon: Icons.battery_charging_full_outlined),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  _batteryIgnored ? Icons.battery_full : Icons.battery_alert_outlined,
+                  color: _batteryIgnored ? Colors.green : Colors.orange,
+                ),
+                title: const Text('Ignorar optimización de batería'),
+                subtitle: Text(
+                  _batteryIgnored
+                      ? 'Activo — la app puede recibir notificaciones en segundo plano'
+                      : 'Inactivo — Android puede suspender la app y bloquear notificaciones',
+                ),
+                trailing: Switch(
+                  value: _batteryIgnored,
+                  onChanged: (_) => _requestBatteryOpt(),
+                  activeColor: Colors.green,
+                ),
+              ),
+            ),
+            if (!_batteryIgnored)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4, bottom: 8),
+                child: Text(
+                  'Recomendado para recibir mensajes aunque la app esté cerrada.',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
 
           // ── Respuestas rápidas ───────────────────────────────
           Row(
