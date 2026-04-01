@@ -439,9 +439,11 @@ function resetMenu(string $sesKey, string $nombre): string
 //  INTEGRACIÓN CON EL PANEL
 // ════════════════════════════════════════════════════════════════
 
-function notifyPanel(string $phone, string $name, string $message, string $messageType, string $area): void
+function notifyPanel(string $phone, string $name, string $message, string $messageType, string $area,
+                     string $mediaUrl = '', string $caption = '', ?string $mediaBase64 = null,
+                     string $mimetype = '', string $filename = ''): void
 {
-    $payload = json_encode([
+    $payload = [
         'phone'       => $phone,
         'name'        => $name,
         'message'     => $message,
@@ -449,7 +451,16 @@ function notifyPanel(string $phone, string $name, string $message, string $messa
         'clientId'    => GYM_CLIENT_ID,
         'area'        => $area,
         'direction'   => 'in',
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+    if ($mediaBase64 !== null && $mediaBase64 !== '') {
+        $payload['mediaBase64'] = $mediaBase64;
+        $payload['mimetype']    = $mimetype;
+        $payload['filename']    = $filename;
+    } elseif ($mediaUrl !== '') {
+        $payload['fileUrl'] = $mediaUrl;
+        if ($caption !== '') $payload['caption'] = $caption;
+    }
+    $payload = json_encode($payload, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init(PANEL_URL . '/incoming.php');
     curl_setopt_array($ch, [
@@ -834,6 +845,11 @@ $nombre      = $data['pushName']          ?? '';
 $clientId    = $data['client_id']         ?? GYM_CLIENT_ID;
 $messageId   = $data['messageId']         ?? '';
 $messageType = $data['messageType']       ?? 'text';
+// Formato nuevo: mediaBase64. Formato legado: mediaUrl/fileUrl
+$mediaBase64   = $data['mediaBase64']     ?? null;
+$mimetypeRaw   = trim($data['mimetype']   ?? '');
+$mediaFilename = trim($data['filename']   ?? '');
+$mediaUrl      = trim($data['mediaUrl']   ?? $data['url'] ?? $data['fileUrl'] ?? '');
 
 // Para ENVIAR (bot y panel): conservar el jid tal como viene.
 // La API acepta @s.whatsapp.net y @lid. Solo usar $from si no hay jid.
@@ -907,8 +923,11 @@ if (!empty(EXCLUDE_WS_MENU)) {
 
 if (empty($from)) { http_response_code(200); exit('OK'); }
 
-// ── Mensaje vacío (multimedia, sticker, audio, etc.) ──────────
-if (empty($mensaje)) {
+// ── Multimedia / mensaje vacío ────────────────────────────────
+// Entra si messageType no es texto (aunque lleve caption en $mensaje)
+// o si el mensaje está vacío (doble-evento, stickers, etc.)
+$esMultimedia = ($messageType !== 'text') && ($mediaBase64 !== null || $mediaUrl !== '' || empty($mensaje));
+if ($esMultimedia || empty($mensaje)) {
     if ($messageType === 'text') {
         wlog("[$clientId] Doble evento text vacío ignorado");
         http_response_code(200); exit('OK');
@@ -923,7 +942,8 @@ if (empty($mensaje)) {
             wlog("[$clientId] Multimedia ignorada — panel ya está en bot");
             guardarEstado($sesKey, null);
         } else {
-            notifyPanel($phoneForPanel, $nombre, '[' . $messageType . ']', $messageType, 'Atención al Cliente');
+            notifyPanel($phoneForPanel, $nombre, $mensaje, $messageType, 'Atención al Cliente',
+                        $mediaUrl, '', $mediaBase64, $mimetypeRaw, $mediaFilename);
             wlog("[$clientId] Multimedia con asesor activo — notificando panel");
         }
         http_response_code(200); exit('OK');

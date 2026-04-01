@@ -34,15 +34,20 @@ if (!is_array($data)) {
     exit;
 }
 
-$phone       = trim($data['phone']       ?? '');
-$name        = trim($data['name']        ?? '');
+// Soporta formato nuevo (from/pushName/client_id/mediaBase64) y legado (phone/name/clientId/fileUrl)
+$phone       = trim($data['from']        ?? $data['phone']    ?? '');
+$name        = trim($data['pushName']    ?? $data['name']     ?? '');
 $message     = trim($data['message']     ?? '');
 $messageType = trim($data['messageType'] ?? 'text');
-$clientId    = trim($data['clientId']    ?? 'default');
+$clientId    = trim($data['client_id']   ?? $data['clientId'] ?? 'default');
 $area        = trim($data['area']        ?? '');
-$direction   = trim($data['direction']   ?? 'in');
-$fileUrl     = trim($data['fileUrl']     ?? '');
-$caption     = trim($data['caption']     ?? '');
+$messageId   = trim($data['messageId']   ?? '');
+$mediaBase64 = $data['mediaBase64']      ?? null;
+$mimetypeRaw = trim($data['mimetype']    ?? $data['mime']     ?? '');
+$filename    = trim($data['filename']    ?? '');
+// legado: fileUrl directo (sin base64)
+$fileUrlLegacy = trim($data['fileUrl']   ?? '');
+$caption       = trim($data['caption']   ?? '');
 
 if ($phone === '' || $clientId === '') {
     http_response_code(400);
@@ -131,26 +136,60 @@ try {
     // Bandera: conv en modo bot sin solicitud de asesor → silenciar contadores y notificaciones
     $isBotSilent = isset($conv) && $conv['status'] === 'bot' && $area === '';
 
-    // 3. Registrar mensaje entrante
+    // 3. Guardar media base64 en disco (si aplica)
+    $fileUrlVal  = null;
+    $fileMimeVal = $mimetypeRaw !== '' ? $mimetypeRaw : null;
+    $fileNameVal = $filename    !== '' ? $filename    : null;
+
+    if ($mediaBase64 !== null && $mediaBase64 !== '' && $messageType !== 'text') {
+        $fileData = base64_decode($mediaBase64, true);
+        if ($fileData !== false) {
+            $uploadDir = UPLOAD_DIR . $convId . '/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $ext       = _mimeToExt($mimetypeRaw);
+            $savedName = uniqid('wa_', true) . '.' . $ext;
+            if (file_put_contents($uploadDir . $savedName, $fileData) !== false) {
+                $fileUrlVal = UPLOAD_URL . $convId . '/' . $savedName;
+            }
+        }
+    } elseif ($fileUrlLegacy !== '') {
+        $fileUrlVal = $fileUrlLegacy;
+    }
+
+    // 4. Registrar mensaje entrante
     $msgType = match($messageType) {
         'image'    => 'image',
+        'audio'    => 'audio',
         'document' => 'document',
         default    => 'text',
     };
 
-    $msgContent = $message !== '' ? $message : '[' . $messageType . ']';
+    // Para mensajes de media, el campo 'message' puede traer el caption
+    if ($msgType === 'text') {
+        $msgContent = $message !== '' ? $message : '[texto vacío]';
+        $captionVal = null;
+    } else {
+        $msgContent = '[' . $messageType . ']';
+        $captionVal = $message !== '' ? $message : ($caption !== '' ? $caption : null);
+    }
 
-    $fileUrlVal = $fileUrl !== '' ? $fileUrl : null;
-    $captionVal = $caption !== '' ? $caption : null;
+    $waMessageId = $messageId !== '' ? $messageId : null;
 
     $insMsq = $pdo->prepare(
         'INSERT INTO messages
-           (conversation_id, direction, type, content, file_url, caption, status, created_at)
-         VALUES (?,?,?,?,?,?,?,?)'
+           (conversation_id, direction, type, content, file_url, file_name, file_mime,
+            caption, wa_message_id, status, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)'
     );
-    $insMsq->execute([$convId, 'in', $msgType, $msgContent, $fileUrlVal, $captionVal, 'sent', $now]);
+    $insMsq->execute([
+        $convId, 'in', $msgType, $msgContent,
+        $fileUrlVal, $fileNameVal, $fileMimeVal,
+        $captionVal, $waMessageId, 'sent', $now,
+    ]);
 
-    // 4. Actualizar contadores de la conversación
+    // 5. Actualizar contadores de la conversación
     // En modo bot-silencioso no incrementar unread (agentes no deben ver el badge)
     if ($isBotSilent) {
         $pdo->prepare(
@@ -166,7 +205,7 @@ try {
         )->execute([$now, $now, $convId]);
     }
 
-    // 5. Crear notificaciones para agentes del departamento
+    // 6. Crear notificaciones para agentes del departamento
     if ($deptIdFor !== null && !$isBotSilent) {
         $agStmt = $pdo->prepare(
             'SELECT a.id, a.fcm_token FROM agents a
@@ -338,4 +377,32 @@ function _fcmAccessToken(array $sa): ?string
 function _b64url(string $data): string
 {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+/**
+ * Convierte un mimetype a extensión de archivo.
+ * Maneja el caso "audio/ogg; codecs=opus" — toma solo la parte antes de ';'.
+ */
+function _mimeToExt(string $mime): string
+{
+    $mime = strtolower(trim(explode(';', $mime)[0]));
+    return match($mime) {
+        'image/jpeg'      => 'jpg',
+        'image/png'       => 'png',
+        'image/gif'       => 'gif',
+        'image/webp'      => 'webp',
+        'audio/ogg'       => 'ogg',
+        'audio/mpeg'      => 'mp3',
+        'audio/mp4'       => 'm4a',
+        'audio/aac'       => 'aac',
+        'audio/webm'      => 'webm',
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'text/plain'      => 'txt',
+        'application/zip' => 'zip',
+        default           => 'bin',
+    };
 }

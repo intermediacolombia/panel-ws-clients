@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/background_service.dart';
 import 'services/notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/conversations_screen.dart';
@@ -33,6 +37,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.init();
   await NotificationService.requestPermission();
+
+  // Servicio en background persistente (notificaciones aunque la app esté cerrada)
+  if (Platform.isAndroid) {
+    // Pedir exención de optimización de batería para polling confiable
+    final batteryStatus = await Permission.ignoreBatteryOptimizations.status;
+    if (!batteryStatus.isGranted) {
+      await Permission.ignoreBatteryOptimizations.request();
+    }
+    await initializeBackgroundService();
+  }
 
   // Firebase es opcional — si falla (ej: sin google-services.json) la app sigue abriendo
   try {

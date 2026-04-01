@@ -295,6 +295,24 @@ const Chat = (() => {
       if (msg.caption) {
         innerHtml += `<div class="bubble-caption">${_linkify(msg.caption)}</div>`;
       }
+    } else if (msg.type === 'audio' && msg.file_url) {
+      const apId = 'ap_' + msg.id;
+      innerHtml += `<div class="bubble-audio" id="${_escAttr(apId)}"
+          data-src="${_escAttr(msg.file_url)}"
+          data-mime="${_escAttr(msg.file_mime || 'audio/ogg')}">
+        <i class="fas fa-microphone audio-mic-icon"></i>
+        <button class="audio-play-btn" onclick="AudioPlayer.toggle('${_escAttr(apId)}')" title="Reproducir">
+          <i class="fas fa-play"></i>
+        </button>
+        <div class="audio-track" onclick="AudioPlayer.seek('${_escAttr(apId)}', event)">
+          <div class="audio-track-fill"></div>
+          <div class="audio-thumb"></div>
+        </div>
+        <span class="audio-time">0:00</span>
+      </div>`;
+      if (msg.caption) {
+        innerHtml += `<div class="bubble-caption">${_linkify(msg.caption)}</div>`;
+      }
     } else if (msg.type === 'document' && msg.file_url) {
       const size = msg.file_size ? _formatFileSize(msg.file_size) : '';
       innerHtml += `<div class="bubble-doc">
@@ -1006,4 +1024,95 @@ const Chat = (() => {
       }
     },
   };
+})();
+
+// ── Reproductor de audio personalizado ───────────────────────────────────────
+
+const AudioPlayer = (() => {
+  const _inst = new Map(); // id → { audio }
+
+  function _get(id) {
+    if (_inst.has(id)) return _inst.get(id);
+    const el = document.getElementById(id);
+    if (!el) return null;
+
+    const audio = new Audio(el.dataset.src);
+    audio.preload = 'metadata';
+
+    audio.addEventListener('timeupdate',      () => _update(id));
+    audio.addEventListener('loadedmetadata',  () => _update(id));
+    audio.addEventListener('ended', () => {
+      audio.currentTime = 0;
+      _update(id);
+      _setPlaying(id, false);
+    });
+
+    _inst.set(id, { audio });
+    return _inst.get(id);
+  }
+
+  function toggle(id) {
+    const inst = _get(id);
+    if (!inst) return;
+
+    // Pausa los demás reproductores activos
+    _inst.forEach((other, otherId) => {
+      if (otherId !== id && !other.audio.paused) {
+        other.audio.pause();
+        _setPlaying(otherId, false);
+      }
+    });
+
+    if (inst.audio.paused) {
+      inst.audio.play();
+      _setPlaying(id, true);
+    } else {
+      inst.audio.pause();
+      _setPlaying(id, false);
+    }
+  }
+
+  function seek(id, event) {
+    const inst = _get(id);
+    if (!inst || !inst.audio.duration) return;
+    const rect  = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    inst.audio.currentTime = ratio * inst.audio.duration;
+    _update(id);
+  }
+
+  function _update(id) {
+    const inst = _inst.get(id);
+    const el   = document.getElementById(id);
+    if (!inst || !el) return;
+
+    const dur = inst.audio.duration || 0;
+    const pos = inst.audio.currentTime || 0;
+    const pct = dur > 0 ? (pos / dur * 100) : 0;
+
+    const fill  = el.querySelector('.audio-track-fill');
+    const thumb = el.querySelector('.audio-thumb');
+    const time  = el.querySelector('.audio-time');
+
+    if (fill)  fill.style.width = pct + '%';
+    if (thumb) thumb.style.left = pct + '%';
+    if (time)  time.textContent = dur
+      ? _fmt(pos) + ' / ' + _fmt(dur)
+      : _fmt(pos);
+  }
+
+  function _setPlaying(id, playing) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const icon = el.querySelector('.audio-play-btn i');
+    if (icon) icon.className = playing ? 'fas fa-pause' : 'fas fa-play';
+  }
+
+  function _fmt(secs) {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  return { toggle, seek };
 })();

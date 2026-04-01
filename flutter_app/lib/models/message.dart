@@ -47,6 +47,7 @@ class Message {
 
   bool get isOutgoing    => direction == 'out';
   bool get isImage       => type == 'image';
+  bool get isAudio       => type == 'audio';
   bool get isDocument    => type == 'document';
   bool get isLocalFailed => status == 'local_failed';
   bool get failed        => status == 'failed' || isLocalFailed;
@@ -69,6 +70,8 @@ class Message {
     if (type == 'text') return content ?? '';
     if (caption != null && caption!.isNotEmpty) return caption!;
     if (fileName != null && fileName!.isNotEmpty) return fileName!;
-    return isImage ? '📷 Imagen' : '📄 Documento';
+    if (isImage)    return '📷 Imagen';
+    if (isAudio)    return '🎵 Audio';
+    return '📄 Documento';
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -387,9 +388,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   Consumer<ChatProvider>(
                     builder: (_, chat, __) {
                       final active = chat.activeConversation ?? conv;
+                      final parts  = [conv.phone];
+                      if (active.deptName != null) parts.add(active.deptName!);
+                      parts.add(active.statusLabel);
                       return Text(
-                        '${conv.phone} · ${active.statusLabel}',
+                        parts.join(' · '),
                         style: const TextStyle(fontSize: 11, color: Colors.white70),
+                        overflow: TextOverflow.ellipsis,
                       );
                     },
                   ),
@@ -486,19 +491,22 @@ class _ProfilePicSmall extends StatelessWidget {
   void _showModal(BuildContext context) {
     final url   = '${ApiConstants.baseUrl}/api/profile_picture.php?phone=$phone';
     final token = ApiService.token;
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar',
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, _, __) => Center(
         child: GestureDetector(
           onTap: () => Navigator.pop(ctx),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: CachedNetworkImage(
               imageUrl: url,
               httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
-              imageBuilder: (_, p) => Image(image: p, fit: BoxFit.contain),
+              imageBuilder: (_, p) => Image(image: p, fit: BoxFit.contain,
+                  width: 300, height: 300),
               placeholder: (_, __) => Container(
                 width: 280, height: 280,
                 color: Colors.white24,
@@ -515,6 +523,15 @@ class _ProfilePicSmall extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+      transitionBuilder: (_, anim, __, child) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.82, end: 1.0).animate(
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+          ),
+          child: child,
         ),
       ),
     );
@@ -835,6 +852,8 @@ class _Bubble extends StatelessWidget {
             // Contenido
             if (msg.isImage && msg.fileUrl != null)
               _ImageContent(url: msg.fileUrl!)
+            else if (msg.isAudio && msg.fileUrl != null)
+              _AudioContent(url: msg.fileUrl!)
             else if (msg.isDocument && msg.fileUrl != null)
               _DocContent(name: msg.fileName ?? 'Documento', url: msg.fileUrl!)
             else
@@ -991,6 +1010,64 @@ class _LinkTextState extends State<_LinkText> {
   );
 }
 
+void _showImageModal(BuildContext context, String url) {
+  final token = ApiService.token;
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Cerrar',
+    barrierColor: Colors.black.withOpacity(0.92),
+    transitionDuration: const Duration(milliseconds: 240),
+    pageBuilder: (ctx, _, __) => SafeArea(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 5.0,
+            child: CachedNetworkImage(
+              imageUrl: url,
+              httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
+              fit: BoxFit.contain,
+              placeholder: (_, __) => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+              errorWidget: (_, __, ___) => const Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white54,
+                size: 64,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8, right: 8,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(ctx),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    transitionBuilder: (_, anim, __, child) => FadeTransition(
+      opacity: anim,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+          CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
 class _ImageContent extends StatelessWidget {
   final String url;
   const _ImageContent({required this.url});
@@ -998,28 +1075,145 @@ class _ImageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final token = ApiService.token;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: CachedNetworkImage(
-        imageUrl: url,
-        httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
-        width: 200, height: 200,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => const SizedBox(
+    return GestureDetector(
+      onTap: () => _showImageModal(context, url),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: url,
+          httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
           width: 200, height: 200,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-        errorWidget: (_, __, ___) => const SizedBox(
-          width: 200, height: 120,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.broken_image_outlined, size: 36, color: AppTheme.textMuted),
-              Text('No disponible', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
-            ],
+          fit: BoxFit.cover,
+          placeholder: (_, __) => const SizedBox(
+            width: 200, height: 200,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          errorWidget: (_, __, ___) => const SizedBox(
+            width: 200, height: 120,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image_outlined, size: 36, color: AppTheme.textMuted),
+                Text('No disponible', style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AudioContent extends StatefulWidget {
+  final String url;
+  const _AudioContent({required this.url});
+
+  @override
+  State<_AudioContent> createState() => _AudioContentState();
+}
+
+class _AudioContentState extends State<_AudioContent> {
+  late final AudioPlayer _player;
+  bool _playing  = false;
+  bool _loading  = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _player.onPlayerStateChanged.listen((s) {
+      if (!mounted) return;
+      setState(() {
+        _playing = s == PlayerState.playing;
+        if (s == PlayerState.completed) _position = Duration.zero;
+      });
+    });
+    _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _player.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_loading) return;
+    if (_playing) {
+      await _player.pause();
+    } else {
+      setState(() => _loading = true);
+      try {
+        await _player.play(UrlSource(widget.url));
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    }
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color    = Theme.of(context).colorScheme.primary;
+    final progress = _duration.inMilliseconds > 0
+        ? (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: _toggle,
+          child: _loading
+              ? SizedBox(
+                  width: 36, height: 36,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                )
+              : Icon(
+                  _playing
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.play_circle_filled_rounded,
+                  color: color,
+                  size: 36,
+                ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 150,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 3,
+                  backgroundColor: color.withOpacity(0.2),
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${_fmt(_position)} / ${_fmt(_duration)}',
+              style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -1030,24 +1224,27 @@ class _DocContent extends StatelessWidget {
   const _DocContent({required this.name, required this.url});
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.insert_drive_file_outlined,
-          color: Theme.of(context).colorScheme.primary, size: 24),
-      const SizedBox(width: 8),
-      Flexible(
-        child: Text(
-          name,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            decoration: TextDecoration.underline,
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.insert_drive_file_outlined,
+            color: Theme.of(context).colorScheme.primary, size: 24),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            name,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              decoration: TextDecoration.underline,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 

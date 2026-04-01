@@ -334,19 +334,22 @@ class _ConversationsScreenState extends State<ConversationsScreen>
 void _showProfileModal(BuildContext context, String phone, String initials, Color color) {
   final url   = '${ApiConstants.baseUrl}/api/profile_picture.php?phone=$phone';
   final token = ApiService.token;
-  showDialog(
+  showGeneralDialog(
     context: context,
-    builder: (ctx) => Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
+    barrierDismissible: true,
+    barrierLabel: 'Cerrar',
+    barrierColor: Colors.black87,
+    transitionDuration: const Duration(milliseconds: 250),
+    pageBuilder: (ctx, _, __) => Center(
       child: GestureDetector(
         onTap: () => Navigator.pop(ctx),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: CachedNetworkImage(
             imageUrl: url,
             httpHeaders: token != null ? {'Authorization': 'Bearer $token'} : {},
-            imageBuilder: (_, p) => Image(image: p, fit: BoxFit.contain),
+            imageBuilder: (_, p) => Image(image: p, fit: BoxFit.contain,
+                width: 300, height: 300),
             placeholder: (_, __) => Container(
               width: 280, height: 280,
               color: color.withOpacity(0.2),
@@ -363,6 +366,15 @@ void _showProfileModal(BuildContext context, String phone, String initials, Colo
             ),
           ),
         ),
+      ),
+    ),
+    transitionBuilder: (_, anim, __, child) => FadeTransition(
+      opacity: anim,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.82, end: 1.0).animate(
+          CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+        ),
+        child: child,
       ),
     ),
   );
@@ -437,6 +449,10 @@ class _ConvTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
+            if (conv.deptName != null) ...[
+              _DeptChip(conv: conv),
+              const SizedBox(width: 4),
+            ],
             _StatusBadge(conv: conv),
           ],
         ),
@@ -507,6 +523,28 @@ class _StatusBadge extends StatelessWidget {
       style: TextStyle(
         color: conv.statusColor,
         fontSize: 10,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
+
+class _DeptChip extends StatelessWidget {
+  final Conversation conv;
+  const _DeptChip({required this.conv});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: conv.deptColorValue.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      conv.deptName!,
+      style: TextStyle(
+        fontSize: 9,
+        color: conv.deptColorValue,
         fontWeight: FontWeight.w700,
       ),
     ),

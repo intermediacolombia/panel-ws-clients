@@ -394,9 +394,10 @@ function notificarAsesor($nombreCliente, $from, $motivo, $deptSlug = null)
 //  Llama al panel web para que registre la conversación y
 //  notifique a los agentes del departamento correspondiente.
 // ════════════════════════════════════════════════════════════════
-function notifyPanel($phone, $name, $message, $messageType, $clientId, $area, $fileUrl = '', $caption = '')
+function notifyPanel($phone, $name, $message, $messageType, $clientId, $area,
+                     $fileUrl = '', $caption = '', $mediaBase64 = null, $mimetype = '', $filename = '')
 {
-    $payload = json_encode([
+    $payload = [
         'phone'       => $phone,
         'name'        => $name,
         'message'     => $message,
@@ -406,7 +407,15 @@ function notifyPanel($phone, $name, $message, $messageType, $clientId, $area, $f
         'direction'   => 'in',
         'fileUrl'     => $fileUrl,
         'caption'     => $caption,
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+    // Campos nuevos solo si hay media base64
+    if ($mediaBase64 !== null && $mediaBase64 !== '') {
+        $payload['mediaBase64'] = $mediaBase64;
+        $payload['mimetype']    = $mimetype;
+        $payload['filename']    = $filename;
+        unset($payload['fileUrl']); // no mezclar con legado
+    }
+    $payload = json_encode($payload, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init(PANEL_URL . '/incoming.php');
     curl_setopt_array($ch, [
@@ -658,6 +667,10 @@ $mensaje     = trim($data['message']     ?? '');
 $messageType = $data['messageType']      ?? 'text';
 $nombre      = $data['pushName']         ?? '';
 $clientId    = $data['client_id']        ?? (defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default');
+// Formato nuevo: mediaBase64. Formato legado: mediaUrl/fileUrl
+$mediaBase64 = $data['mediaBase64']      ?? null;
+$mimetypeRaw = trim($data['mimetype']    ?? '');
+$mediaFilename = trim($data['filename']  ?? '');
 $mediaUrl    = trim($data['mediaUrl']    ?? $data['url'] ?? $data['fileUrl'] ?? $data['media_url'] ?? '');
 $caption     = trim($data['caption']     ?? $data['text'] ?? '');
 
@@ -675,10 +688,12 @@ $from = preg_replace('/[^0-9+]/', '', $from);
 
 wlog("[$clientId] from normalizado: $from  |  jid original: $jid");
 
-// Log para verificar campo de URL en media (solo si es multimedia)
+// Log para verificar campo de media (solo si es multimedia)
 if (!empty($messageType) && $messageType !== 'text') {
-    wlog("[$clientId] MEDIA FIELDS: type=$messageType mediaUrl=" . ($mediaUrl ?: 'VACÍO') .
-         " keys=" . implode(',', array_keys($data)));
+    $mediaInfo = $mediaBase64 !== null
+        ? 'base64(' . strlen($mediaBase64) . 'chars) mime=' . $mimetypeRaw
+        : 'url=' . ($mediaUrl ?: 'VACÍO');
+    wlog("[$clientId] MEDIA FIELDS: type=$messageType $mediaInfo keys=" . implode(',', array_keys($data)));
 }
 
 // Para enviar mensajes: usar jid completo @s.whatsapp.net si está disponible
@@ -692,7 +707,10 @@ if (empty($from)) { http_response_code(200); exit('OK'); }
 wlog("[$clientId] $from ($nombre) tipo=$messageType → \"$mensaje\"");
 
 // ── Multimedia / mensaje vacío ───────────────────────────────
-if (empty($mensaje)) {
+// Entra si messageType no es texto (aunque lleve caption en $mensaje)
+// o si el mensaje está vacío (doble-evento, stickers, etc.)
+$esMultimedia = ($messageType !== 'text') && ($mediaBase64 !== null || $mediaUrl !== '' || empty($mensaje));
+if ($esMultimedia || empty($mensaje)) {
     $messageType = $data['messageType'] ?? 'text';
 
     // Doble evento: type=text con message vacío → ignorar siempre
@@ -713,7 +731,8 @@ if (empty($mensaje)) {
             // Dejar que el flujo continúe abajo para procesar el mensaje
         } else {
             // Registrar el archivo en el panel para que el agente lo vea
-            notifyPanel($from, $nombre, '[' . $messageType . ']', $messageType, $clientId, '', $mediaUrl, $caption);
+            notifyPanel($from, $nombre, $mensaje, $messageType, $clientId, '',
+                        $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
             wlog("[$clientId] Multimedia con asesor activo — registrado en panel");
             http_response_code(200); exit('OK');
         }
@@ -728,7 +747,8 @@ if (empty($mensaje)) {
         guardarEstado($sesKey, 'asesor', ['comprobante' => true]);
 
         // Notificar al panel web
-        notifyPanel($from, $nombre, '[comprobante]', $messageType, $clientId, 'Medios de Pago', $mediaUrl, $caption);
+        notifyPanel($from, $nombre, $mensaje ?: '[comprobante]', $messageType, $clientId, 'Medios de Pago',
+                    $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
 
         // Notificar al asesor por WA
         notificarAsesor($nombre, $from, "Comprobante de pago recibido — pendiente validación", 'pagos');
