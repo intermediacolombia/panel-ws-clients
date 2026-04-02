@@ -48,8 +48,15 @@ try {
 
     // Filtro de status
     if ($statusFilter !== 'all' && in_array($statusFilter, ['pending','attending','resolved','bot'])) {
-        $where[]  = 'c.status = ?';
-        $params[] = $statusFilter;
+        if ($statusFilter === 'resolved') {
+            // Mostrar conversaciones resueltas (incluyendo las que regresaron a bot tras ser resueltas)
+            $where[]  = '(c.status = ? OR (c.resolved_at IS NOT NULL AND c.status = ?))';
+            $params[] = 'resolved';
+            $params[] = 'bot';
+        } else {
+            $where[]  = 'c.status = ?';
+            $params[] = $statusFilter;
+        }
     }
 
     // Filtro de departamento
@@ -73,7 +80,7 @@ try {
         COUNT(*) AS total,
         SUM(CASE WHEN c.status = 'pending'   THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN c.status = 'attending' THEN 1 ELSE 0 END) AS attending,
-        SUM(CASE WHEN c.status = 'resolved'  THEN 1 ELSE 0 END) AS resolved,
+        SUM(CASE WHEN c.status = 'resolved' OR c.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved,
         SUM(CASE WHEN c.status = 'bot'       THEN 1 ELSE 0 END) AS bot
       FROM conversations c
       WHERE {$whereStr}";
