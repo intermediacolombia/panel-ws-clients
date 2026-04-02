@@ -1080,10 +1080,10 @@ if ($estado === 'asesor') {
             "🎫 *¿Necesitas soporte urgente? ¡Abre un ticket ahora!*\n" .
             "https://clientes.intermediahost.co/submitticket.php\n\n" .
             "Escribe *Menú* para volver al menú principal.";
-        // Fuera de horario: limpiar estado para que el bot retome el control
-        // y mensajes posteriores no se acumulen en el panel como si hubiera asesor
+        // Fuera de horario: pasar al bot en el panel y limpiar estado
+        panelSetBot($from, $clientId);
         guardarEstado($sesKey, null);
-        wlog("[$clientId] OTROS fuera de horario — estado limpiado, bot retoma");
+        wlog("[$clientId] OTROS fuera de horario — pasado a bot, estado limpiado");
     }
 
 // ── I. Sin estado (primera vez o expirado) ───────────────────
