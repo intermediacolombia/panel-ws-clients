@@ -48,7 +48,8 @@ try {
 
     $pdo->prepare(
         'UPDATE conversations
-         SET status = ?, resolved_at = ?, resolved_by = ?, updated_at = ?
+         SET status = ?, resolved_at = ?, resolved_by = ?, updated_at = ?,
+             assigned_at = COALESCE(assigned_at, created_at)
          WHERE id = ?'
     )->execute(['resolved', $now, $currentAgent['id'], $now, $convId]);
 

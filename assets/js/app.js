@@ -353,6 +353,11 @@ const App = (() => {
           await Chat.load(convId);
         }
         loadConversations();
+        // Refrescar estadísticas si la sección está visible
+        if (typeof Stats !== 'undefined' && document.getElementById('s-total')) {
+          const activeBtn = document.querySelector('.period-btn.active');
+          Stats.load(activeBtn ? activeBtn.dataset.period : 'today', activeBtn);
+        }
       } else {
         Notify.showToast(json.error || 'Error en la operación.', 'error');
       }
