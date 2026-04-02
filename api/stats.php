@@ -56,12 +56,13 @@ try {
     }
 
     // ── Totales por status ───────────────────────────────────────
+    // Pendientes/Attending/Bot: creados en el período
+    // Resueltos: resueltos dentro del período (sin importar cuándo se crearon)
     $totStmt = $pdo->prepare(
         "SELECT
            COUNT(*) AS total,
            SUM(CASE WHEN c.status='pending'   THEN 1 ELSE 0 END) AS pending,
            SUM(CASE WHEN c.status='attending' THEN 1 ELSE 0 END) AS attending,
-           SUM(CASE WHEN c.status='resolved'  THEN 1 ELSE 0 END) AS resolved,
            SUM(CASE WHEN c.status='bot'       THEN 1 ELSE 0 END) AS bot
          FROM conversations c
          WHERE c.created_at BETWEEN ? AND ?
@@ -70,11 +71,24 @@ try {
     $totStmt->execute([$start, $end]);
     $totals = $totStmt->fetch();
 
+    // Resueltos en el período (filtrado por resolved_at)
+    $resolvedStmt = $pdo->prepare(
+        "SELECT COUNT(*) AS resolved
+         FROM conversations c
+         WHERE c.status = 'resolved'
+           AND c.resolved_at BETWEEN ? AND ?
+         {$scopeWhere}"
+    );
+    $resolvedStmt->execute([$start, $end]);
+    $resolvedRow = $resolvedStmt->fetch();
+
     // ── Tiempo promedio de atención (minutos) ────────────────────
+    // Solo conversaciones en que un agente las atendió (assigned_at != NULL)
     $avgStmt = $pdo->prepare(
-        "SELECT AVG(TIMESTAMPDIFF(MINUTE, COALESCE(assigned_at, created_at), resolved_at)) AS avg_minutes
+        "SELECT AVG(TIMESTAMPDIFF(MINUTE, assigned_at, resolved_at)) AS avg_minutes
          FROM conversations c
          WHERE resolved_at IS NOT NULL
+           AND assigned_at IS NOT NULL
            AND resolved_at BETWEEN ? AND ?
          {$scopeWhere}"
     );
@@ -117,9 +131,10 @@ try {
                a.id, a.name, a.username,
                CASE WHEN a.last_seen >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 ELSE 0 END AS online,
                COUNT(DISTINCT c.id) AS assigned,
-               COUNT(DISTINCT CASE WHEN c.status='resolved' THEN c.id END) AS resolved,
-               AVG(CASE WHEN c.resolved_at IS NOT NULL
-                        THEN TIMESTAMPDIFF(MINUTE, COALESCE(c.assigned_at, c.created_at), c.resolved_at)
+               COUNT(DISTINCT CASE WHEN c.status='resolved' AND c.resolved_at BETWEEN ? AND ? THEN c.id END) AS resolved,
+               AVG(CASE WHEN c.resolved_at IS NOT NULL AND c.assigned_at IS NOT NULL
+                            AND c.resolved_at BETWEEN ? AND ?
+                        THEN TIMESTAMPDIFF(MINUTE, c.assigned_at, c.resolved_at)
                         ELSE NULL END) AS avg_minutes
              FROM agents a
              LEFT JOIN conversations c ON c.agent_id = a.id
@@ -128,7 +143,7 @@ try {
              GROUP BY a.id
              ORDER BY resolved DESC"
         );
-        $agStmt->execute([$start, $end]);
+        $agStmt->execute([$start, $end, $start, $end, $start, $end]);
         $agentStats = $agStmt->fetchAll();
 
         foreach ($agentStats as &$ag) {
@@ -157,7 +172,7 @@ try {
             'total'       => (int)$totals['total'],
             'pending'     => (int)$totals['pending'],
             'attending'   => (int)$totals['attending'],
-            'resolved'    => (int)$totals['resolved'],
+            'resolved'    => (int)($resolvedRow['resolved'] ?? 0),
             'bot'         => (int)$totals['bot'],
             'avg_minutes' => $avgMinutes,
             'hourly'      => $hourlyData,
