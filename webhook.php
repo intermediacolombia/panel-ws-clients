@@ -668,8 +668,12 @@ function mediosDePago()
         "intermediacolombia@gmail.com\n\n" .
         "Por favor, una vez realices el pago, no olvides enviar el *comprobante* para validar el pago y activar o renovar tu servicio.\n\n" .
         "¡Gracias por confiar en nosotros! 💻✨\n\n" .
-        "📎 *Envía aquí tu comprobante* (imagen o PDF) y un asesor lo validará en breve.\n\n" .
-        "Escribe *Menú* para volver al menú principal.";
+        "📎 *Envía aquí tu comprobante* (imagen o PDF) y será registrado de inmediato.\n\n" .
+        "📌 *Opciones disponibles:*\n" .
+        "   • Escribe *Menú* si no deseas enviar el comprobante ahora.\n" .
+        (empresaAbierta()
+            ? "   • Escribe *asesor* si prefieres hablar directamente con un agente de ventas."
+            : "   • Fuera de horario comercial — envía tu comprobante y lo procesamos en el próximo día hábil.");
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1024,11 +1028,31 @@ if ($estado === 'asesor') {
 } elseif ($estado === 'espera_comprobante') {
     if (esReset($mensaje) || esSaludo($mensajeLower)) {
         $respuesta = resetMenu($sesKey, $nombre);
+    } elseif (preg_match('/^\s*asesor\s*$/i', $mensajeLower) && empresaAbierta()) {
+        // Usuario quiere hablar con un asesor en lugar de enviar comprobante
+        $respuesta =
+            "⏱️ *Un momento por favor...*\n\n" .
+            "Te vamos a conectar con un asesor de ventas que te ayudará. 😊\n\n" .
+            "📌 Mientras tanto puedes visitar:\n" .
+            "🌐 https://www.intermediahost.co\n" .
+            "👤 http://clientes.intermediahost.co\n\n" .
+            "Escribe *Menú* si deseas volver al menú principal.";
+        guardarEstado($sesKey, 'asesor', ['area' => 'Ventas']);
+        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas');
+        notificarAsesor($nombre, $from, "Solicita asesor desde área de pagos", 'ventas');
+    } elseif (preg_match('/^\s*asesor\s*$/i', $mensajeLower) && !empresaAbierta()) {
+        // Escribe "asesor" pero fuera de horario
+        $respuesta = mensajeAusenciaVentas();
+        guardarEstado($sesKey, 'espera_comprobante');
     } else {
         $respuesta =
             "📎 Por favor envía tu *comprobante de pago* como imagen o PDF.\n\n" .
             "Si tienes alguna duda sobre los medios de pago escribe *3* para verlos de nuevo.\n\n" .
-            "Escribe *Menú* para volver al menú principal.";
+            "📌 *Opciones:*\n" .
+            "   • Escribe *Menú* si no deseas enviar el comprobante ahora.\n" .
+            (empresaAbierta()
+                ? "   • Escribe *asesor* para hablar con un agente de ventas."
+                : "   • Fuera de horario — envía tu comprobante y lo procesamos el próximo día hábil.");
         guardarEstado($sesKey, 'espera_comprobante');
     }
 
