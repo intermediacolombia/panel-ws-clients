@@ -120,6 +120,7 @@ try {
             $upd = $pdo->prepare(
                 'UPDATE conversations
                  SET status = ?, agent_id = NULL, assigned_at = NULL,
+                     resolved_at = NULL, resolved_by = NULL,
                      unread_count = 0, area_label = ?, updated_at = ?
                  WHERE id = ?'
             );

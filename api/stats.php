@@ -71,11 +71,11 @@ try {
     $totStmt->execute([$start, $end]);
     $totals = $totStmt->fetch();
 
-    // Resueltos en el período (filtrado por resolved_at)
+    // Resueltos en el período (filtrado por resolved_at, sin importar estado actual)
     $resolvedStmt = $pdo->prepare(
         "SELECT COUNT(*) AS resolved
          FROM conversations c
-         WHERE c.status = 'resolved'
+         WHERE c.resolved_at IS NOT NULL
            AND c.resolved_at BETWEEN ? AND ?
          {$scopeWhere}"
     );
@@ -131,7 +131,7 @@ try {
                a.id, a.name, a.username,
                CASE WHEN a.last_seen >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 ELSE 0 END AS online,
                COUNT(DISTINCT c.id) AS assigned,
-               COUNT(DISTINCT CASE WHEN c.status='resolved' AND c.resolved_at BETWEEN ? AND ? THEN c.id END) AS resolved,
+               COUNT(DISTINCT CASE WHEN c.resolved_at IS NOT NULL AND c.resolved_at BETWEEN ? AND ? THEN c.id END) AS resolved,
                AVG(CASE WHEN c.resolved_at IS NOT NULL AND c.assigned_at IS NOT NULL
                             AND c.resolved_at BETWEEN ? AND ?
                         THEN TIMESTAMPDIFF(MINUTE, c.assigned_at, c.resolved_at)
