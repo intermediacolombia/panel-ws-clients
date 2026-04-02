@@ -53,6 +53,10 @@ try {
          WHERE id = ?'
     )->execute(['bot', $now, $convId]);
 
+    // Limpiar estado del bot para que el cliente empiece desde el menú si vuelve a escribir
+    $sesKey = $conv['phone'] . '_' . $conv['client_id'];
+    $pdo->prepare('DELETE FROM bot_estados WHERE ses_key = ?')->execute([$sesKey]);
+
     // Enviar mensaje de despedida al usuario por WhatsApp
     $farewell =
         "👋 *¡Gracias por contactarnos!*\n\n" .

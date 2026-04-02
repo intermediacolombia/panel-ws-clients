@@ -53,6 +53,10 @@ try {
          WHERE id = ?'
     )->execute(['resolved', $now, $currentAgent['id'], $now, $convId]);
 
+    // Limpiar estado del bot para que el cliente empiece de cero si vuelve a escribir
+    $sesKey = $conv['phone'] . '_' . $conv['client_id'];
+    $pdo->prepare('DELETE FROM bot_estados WHERE ses_key = ?')->execute([$sesKey]);
+
     // Notificar si hay agente asignado diferente al que resolvió
     if ($conv['agent_id'] && (int)$conv['agent_id'] !== $currentAgent['id']) {
         $pdo->prepare(
