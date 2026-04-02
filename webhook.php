@@ -1058,27 +1058,33 @@ if ($estado === 'asesor') {
 
 // ── H. Otros — esperando mensaje libre ───────────────────────
 } elseif ($estado === 'otros_solicitud') {
+    // Registrar siempre la consulta en el panel (queda como historial)
+    notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Otros');
+    wlog("[$clientId] OTROS: $nombre ($from) — $mensaje");
+
     if (empresaAbierta()) {
         $respuesta =
             "⏱️ *Un momento por favor...*\n\n" .
-            "Tu mensaje ha sido registrado y un asesor te atenderá pronto. 😊\n\n" .
+            "Tu mensaje ha sido registrado y vamos a contactar con un asesor para que te ayude con tu solicitud. 😊\n\n" .
             "📌 Sitio web: https://www.intermediahost.co\n" .
             "👤 Área de cliente: http://clientes.intermediahost.co\n\n" .
             "Escribe *Menú* si deseas volver al menú principal.";
+        guardarEstado($sesKey, 'asesor', ['consulta' => $mensaje, 'area' => 'Otros']);
+        notificarAsesor($nombre, $from, "Otros — " . mb_substr($mensaje, 0, 60), 'otros');
     } else {
         $respuesta =
             "📩 *Mensaje recibido.*\n\n" .
-            "Gracias por escribirnos. Tu consulta fue registrada y te responderemos en cuanto estemos disponibles. 🙂\n\n" .
+            "Gracias por escribirnos. Tu consulta quedó registrada y te responderemos en cuanto estemos disponibles. 🙂\n\n" .
             "Estaremos de vuelta " . cuandoVuelven() . ".\n\n" .
             horarioTexto() .
             "🎫 *¿Necesitas soporte urgente? ¡Abre un ticket ahora!*\n" .
             "https://clientes.intermediahost.co/submitticket.php\n\n" .
             "Escribe *Menú* para volver al menú principal.";
+        // Fuera de horario: limpiar estado para que el bot retome el control
+        // y mensajes posteriores no se acumulen en el panel como si hubiera asesor
+        guardarEstado($sesKey, null);
+        wlog("[$clientId] OTROS fuera de horario — estado limpiado, bot retoma");
     }
-    guardarEstado($sesKey, 'asesor', ['consulta' => $mensaje, 'area' => 'Otros']);
-    wlog("[$clientId] OTROS: $nombre ($from) — $mensaje");
-    notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Otros');
-    notificarAsesor($nombre, $from, "Otros — " . mb_substr($mensaje, 0, 60), 'otros');
 
 // ── I. Sin estado (primera vez o expirado) ───────────────────
 } else {
