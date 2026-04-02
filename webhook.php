@@ -624,7 +624,7 @@ function menuPrincipal($nombre = '')
         "Selecciona el área que necesitas:\n\n" .
         "1️⃣  Ventas\n" .
         "2️⃣  Soporte Técnico\n" .
-        "3️⃣  Medios de Pago\n" .
+        "3️⃣  Pagos y comprobantes\n" .
         "4️⃣  Otros\n\n" .
         "_Escribe solo el número de la opción._";
 }
@@ -827,7 +827,7 @@ if ($esMultimedia || empty($mensaje)) {
         "Por favor elige una opción escribiendo el número:\n\n" .
         "1️⃣  Ventas\n" .
         "2️⃣  Soporte Técnico\n" .
-        "3️⃣  Medios de Pago\n" .
+        "3️⃣  Pagos y comprobantes\n" .
         "4️⃣  Otros\n\n" .
         "_Escribe el número de la opción que deseas._"
     );
