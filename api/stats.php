@@ -72,10 +72,9 @@ try {
 
     // ── Tiempo promedio de atención (minutos) ────────────────────
     $avgStmt = $pdo->prepare(
-        "SELECT AVG(TIMESTAMPDIFF(MINUTE, assigned_at, resolved_at)) AS avg_minutes
+        "SELECT AVG(TIMESTAMPDIFF(MINUTE, COALESCE(assigned_at, created_at), resolved_at)) AS avg_minutes
          FROM conversations c
          WHERE resolved_at IS NOT NULL
-           AND assigned_at IS NOT NULL
            AND resolved_at BETWEEN ? AND ?
          {$scopeWhere}"
     );
@@ -119,8 +118,8 @@ try {
                CASE WHEN a.last_seen >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 ELSE 0 END AS online,
                COUNT(DISTINCT c.id) AS assigned,
                COUNT(DISTINCT CASE WHEN c.status='resolved' THEN c.id END) AS resolved,
-               AVG(CASE WHEN c.resolved_at IS NOT NULL AND c.assigned_at IS NOT NULL
-                        THEN TIMESTAMPDIFF(MINUTE, c.assigned_at, c.resolved_at)
+               AVG(CASE WHEN c.resolved_at IS NOT NULL
+                        THEN TIMESTAMPDIFF(MINUTE, COALESCE(c.assigned_at, c.created_at), c.resolved_at)
                         ELSE NULL END) AS avg_minutes
              FROM agents a
              LEFT JOIN conversations c ON c.agent_id = a.id
