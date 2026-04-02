@@ -44,6 +44,12 @@ class ChatProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get onlineAgents   => _onlineAgents;
   bool                       get loadingAgents  => _loadingAgents;
 
+  // ── Contadores por estado ────────────────────────────────────
+  int get pendingCount   => _conversations.where((c) => c.status == 'pending').length;
+  int get attendingCount => _conversations.where((c) => c.status == 'attending').length;
+  int get resolvedCount  => _conversations.where((c) => c.status == 'resolved').length;
+  int get totalUnread    => _conversations.fold(0, (sum, c) => sum + c.unreadCount);
+
   // ── Carga de conversaciones (con indicador) ──────────────────
   Future<void> fetchConversations({String status = 'all'}) async {
     if (_loadingConvs) return;

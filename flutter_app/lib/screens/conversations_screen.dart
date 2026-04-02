@@ -12,6 +12,25 @@ import 'chat_screen.dart';
 import 'new_conversation_screen.dart';
 import 'settings_screen.dart';
 
+// ── Definición de tabs ────────────────────────────────────────────────────────
+
+class _TabDef {
+  final String label;
+  final String status;
+  final Color color;
+  final IconData icon;
+  const _TabDef(this.label, this.status, this.color, this.icon);
+}
+
+const _kTabs = [
+  _TabDef('Todas',      'all',       Color(0xFF5B8DEF), Icons.chat_bubble_outline_rounded),
+  _TabDef('Pendientes', 'pending',   Color(0xFFE67E22), Icons.hourglass_top_rounded),
+  _TabDef('Atendiendo', 'attending', Color(0xFF27AE60), Icons.headset_mic_rounded),
+  _TabDef('Resueltas',  'resolved',  Color(0xFF7F8C8D), Icons.check_circle_outline_rounded),
+];
+
+// ── Screen principal ──────────────────────────────────────────────────────────
+
 class ConversationsScreen extends StatefulWidget {
   const ConversationsScreen({super.key});
 
@@ -24,17 +43,13 @@ class _ConversationsScreenState extends State<ConversationsScreen>
   late final TabController _tabs;
   Timer? _pollTimer;
 
-  static const _filters = ['all', 'pending', 'attending', 'resolved'];
-  int _tabIndex = 0;
-
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: _filters.length, vsync: this);
-    _tabs.addListener(_onTabChange);
+    _tabs = TabController(length: _kTabs.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       _startPolling();
@@ -44,27 +59,17 @@ class _ConversationsScreenState extends State<ConversationsScreen>
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _tabs.removeListener(_onTabChange);
     _tabs.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _onTabChange() {
-    if (!_tabs.indexIsChanging) {
-      _tabIndex = _tabs.index;
-      _load();
-    }
-  }
-
-  String get _currentFilter => _filters[_tabIndex];
-
   Future<void> _load() =>
-      context.read<ChatProvider>().fetchConversations(status: _currentFilter);
+      context.read<ChatProvider>().fetchConversations(status: 'all');
 
   void _startPolling() {
     _pollTimer = Timer.periodic(ApiConstants.pollConversations, (_) {
-      context.read<ChatProvider>().refreshConversations(status: _currentFilter);
+      context.read<ChatProvider>().refreshConversations(status: 'all');
     });
   }
 
@@ -75,10 +80,19 @@ class _ConversationsScreenState extends State<ConversationsScreen>
     ).then((_) => _load());
   }
 
+  List<Conversation> _applySearch(List<Conversation> list) {
+    if (_searchQuery.isEmpty) return list;
+    return list
+        .where((c) =>
+            c.contactName.toLowerCase().contains(_searchQuery) ||
+            c.phone.contains(_searchQuery))
+        .toList();
+  }
+
   void _showLongPressMenu(Conversation conv) {
     final chat         = context.read<ChatProvider>();
     final canTransfer  = conv.status == 'attending';
-    final canReleaseBot = conv.status == 'attending' || conv.status == 'pending';
+    final canReleaseBot = conv.status == 'attending' || conv.status == 'pending' || conv.status == 'resolved';
 
     if (!canTransfer && !canReleaseBot) return;
 
@@ -177,15 +191,43 @@ class _ConversationsScreenState extends State<ConversationsScreen>
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final agent = context.read<AuthProvider>().agent;
+    final chat  = context.watch<ChatProvider>();
+
+    final allConvs = chat.conversations;
+    final counts   = [
+      allConvs.length,
+      chat.pendingCount,
+      chat.attendingCount,
+      chat.resolvedCount,
+    ];
+
+    // Listas filtradas por tab + búsqueda
+    final tabLists = [
+      _applySearch(allConvs),
+      _applySearch(allConvs.where((c) => c.status == 'pending').toList()),
+      _applySearch(allConvs.where((c) => c.status == 'attending').toList()),
+      _applySearch(allConvs.where((c) => c.status == 'resolved').toList()),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Conversaciones'),
+            Row(
+              children: [
+                const Text('Conversaciones'),
+                if (chat.totalUnread > 0) ...[
+                  const SizedBox(width: 8),
+                  _UnreadBubble(count: chat.totalUnread),
+                ],
+              ],
+            ),
             if (agent != null)
               Text(
                 agent.name,
@@ -266,18 +308,16 @@ class _ConversationsScreenState extends State<ConversationsScreen>
                   ),
                 ),
               ),
-              // Tabs
+              // Tabs con contadores
               TabBar(
                 controller: _tabs,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white54,
                 indicatorColor: AppTheme.primaryLight,
                 indicatorWeight: 3,
-                tabs: const [
-                  Tab(text: 'Todas'),
-                  Tab(text: 'Pendientes'),
-                  Tab(text: 'Atendiendo'),
-                  Tab(text: 'Resueltas'),
+                tabs: [
+                  for (int i = 0; i < _kTabs.length; i++)
+                    _buildTab(_kTabs[i].label, counts[i], _kTabs[i].color),
                 ],
               ),
             ],
@@ -292,44 +332,270 @@ class _ConversationsScreenState extends State<ConversationsScreen>
         tooltip: 'Nueva conversación',
         child: const Icon(Icons.chat_outlined),
       ),
-      body: Consumer<ChatProvider>(
-        builder: (context, chat, _) {
-          if (chat.loadingConversations && chat.conversations.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (chat.conversationsError != null && chat.conversations.isEmpty) {
-            return _ErrorView(message: chat.conversationsError!, onRetry: _load);
-          }
+      body: Column(
+        children: [
+          // Strip de estadísticas
+          _StatsStrip(
+            pending:   chat.pendingCount,
+            attending: chat.attendingCount,
+            resolved:  chat.resolvedCount,
+            unread:    chat.totalUnread,
+          ),
+          const Divider(height: 1),
+          // Contenido de tabs con swipe
+          Expanded(
+            child: chat.loadingConversations && allConvs.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : chat.conversationsError != null && allConvs.isEmpty
+                    ? _ErrorView(
+                        message: chat.conversationsError!,
+                        onRetry: _load,
+                      )
+                    : TabBarView(
+                        controller: _tabs,
+                        children: [
+                          for (int i = 0; i < _kTabs.length; i++)
+                            _TabContent(
+                              convs:       tabLists[i],
+                              onRefresh:   _load,
+                              onTap:       _openChat,
+                              onLongPress: _showLongPressMenu,
+                            ),
+                        ],
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
 
-          // Filtro local por búsqueda
-          final convs = _searchQuery.isEmpty
-              ? chat.conversations
-              : chat.conversations.where((c) =>
-                  c.contactName.toLowerCase().contains(_searchQuery) ||
-                  c.phone.contains(_searchQuery)).toList();
-
-          if (convs.isEmpty) return const _EmptyView();
-
-          return RefreshIndicator(
-            onRefresh: _load,
-            child: ListView.separated(
-              itemCount: convs.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 72, endIndent: 16),
-              itemBuilder: (_, i) => _ConvTile(
-                conv: convs[i],
-                onTap: () => _openChat(convs[i]),
-                onLongPress: () => _showLongPressMenu(convs[i]),
+  Tab _buildTab(String label, int count, Color badgeColor) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          if (count > 0) ...[
+            const SizedBox(width: 4),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Container(
+                key: ValueKey(count),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-          );
-        },
+          ],
+        ],
       ),
     );
   }
 }
 
-// ── Tile de conversación ─────────────────────────────────────────────────────
+// ── Strip de estadísticas ─────────────────────────────────────────────────────
+
+class _StatsStrip extends StatelessWidget {
+  final int pending;
+  final int attending;
+  final int resolved;
+  final int unread;
+
+  const _StatsStrip({
+    required this.pending,
+    required this.attending,
+    required this.resolved,
+    required this.unread,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 72,
+      color: Theme.of(context).colorScheme.surface,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        children: [
+          _StatCard(
+            label: 'Pendientes',
+            count: pending,
+            color: const Color(0xFFE67E22),
+            icon: Icons.hourglass_top_rounded,
+          ),
+          const SizedBox(width: 8),
+          _StatCard(
+            label: 'Atendiendo',
+            count: attending,
+            color: const Color(0xFF27AE60),
+            icon: Icons.headset_mic_rounded,
+          ),
+          const SizedBox(width: 8),
+          _StatCard(
+            label: 'Resueltas',
+            count: resolved,
+            color: const Color(0xFF7F8C8D),
+            icon: Icons.check_circle_outline_rounded,
+          ),
+          const SizedBox(width: 8),
+          _StatCard(
+            label: 'Sin leer',
+            count: unread,
+            color: const Color(0xFF5B8DEF),
+            icon: Icons.mark_unread_chat_alt_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+
+  const _StatCard({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 116,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, -0.3),
+                      end: Offset.zero,
+                    ).animate(anim),
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  '$count',
+                  key: ValueKey(count),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: color.withOpacity(0.85),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Burbuja de mensajes sin leer en AppBar ────────────────────────────────────
+
+class _UnreadBubble extends StatelessWidget {
+  final int count;
+  const _UnreadBubble({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: Container(
+        key: ValueKey(count),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Contenido de tab (lista de conversaciones) ────────────────────────────────
+
+class _TabContent extends StatelessWidget {
+  final List<Conversation> convs;
+  final Future<void> Function() onRefresh;
+  final void Function(Conversation) onTap;
+  final void Function(Conversation) onLongPress;
+
+  const _TabContent({
+    required this.convs,
+    required this.onRefresh,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (convs.isEmpty) return const _EmptyView();
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.separated(
+        itemCount: convs.length,
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, indent: 72, endIndent: 16),
+        itemBuilder: (_, i) => _ConvTile(
+          conv: convs[i],
+          onTap: () => onTap(convs[i]),
+          onLongPress: () => onLongPress(convs[i]),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tile de conversación ──────────────────────────────────────────────────────
 
 void _showProfileModal(BuildContext context, String phone, String initials, Color color) {
   final url   = '${ApiConstants.baseUrl}/api/profile_picture.php?phone=$phone';
@@ -461,7 +727,7 @@ class _ConvTile extends StatelessWidget {
   }
 }
 
-// ── Foto de perfil con cache ─────────────────────────────────────────────────
+// ── Foto de perfil con cache ──────────────────────────────────────────────────
 
 class _ProfileAvatar extends StatelessWidget {
   final String phone;
@@ -600,7 +866,7 @@ class _ErrorView extends StatelessWidget {
   );
 }
 
-// ── Sheet de agentes para transferir desde la lista ──────────────────────────
+// ── Sheet de agentes para transferir desde la lista ───────────────────────────
 
 class _AgentsSheet extends StatelessWidget {
   final int? excludeAgentId;

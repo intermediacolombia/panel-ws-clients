@@ -1339,7 +1339,7 @@ class _ActionsSheet extends StatelessWidget {
               ),
             ],
 
-            if (status == 'attending' || status == 'pending')
+            if (status == 'attending' || status == 'pending' || status == 'resolved')
               ListTile(
                 leading: const Icon(Icons.smart_toy_outlined, color: Colors.orange),
                 title: const Text('Pasar al bot'),

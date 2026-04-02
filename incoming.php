@@ -117,14 +117,19 @@ try {
         // Si estaba en bot → solo reactivar si se especifica área (usuario solicitó asesor desde el bot).
         // Sin área = mensaje de tránsito bot→bot; no cambiar estado ni alertar agentes.
         if ($conv['status'] === 'resolved' || ($conv['status'] === 'bot' && $area !== '')) {
+            // Si viene un área nueva, reasignar al departamento correcto.
+            // Esto cubre el caso: cliente escribió antes a Soporte, ahora escribe a Ventas.
+            $newDeptId = $area !== '' ? getOrCreateDepartment($area) : $conv['department_id'];
+            $deptIdFor = $newDeptId; // notificaciones deben ir al dept correcto
+
             $upd = $pdo->prepare(
                 'UPDATE conversations
                  SET status = ?, agent_id = NULL, assigned_at = NULL,
                      resolved_at = NULL, resolved_by = NULL,
-                     unread_count = 0, area_label = ?, updated_at = ?
+                     unread_count = 0, area_label = ?, department_id = ?, updated_at = ?
                  WHERE id = ?'
             );
-            $upd->execute(['pending', $area ?: $conv['area_label'], $now, $convId]);
+            $upd->execute(['pending', $area ?: $conv['area_label'], $newDeptId, $now, $convId]);
         }
 
         // Actualizar nombre si estaba vacío
