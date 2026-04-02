@@ -224,7 +224,14 @@ window.DeptsPanel = (() => {
   }
 
   async function remove(id) {
-    if (!confirm('¿Eliminar este departamento? Esta acción no se puede deshacer.')) return;
+    const confirmed = await ConfirmModal.show({
+      title:        'Eliminar departamento',
+      message:      'Las conversaciones asignadas a este departamento quedarán sin área. Esta acción no se puede deshacer.',
+      icon:         'danger',
+      confirmText:  'Eliminar',
+      confirmClass: 'btn-danger',
+    });
+    if (!confirmed) return;
     try {
       const res  = await fetch('/api/departments.php', {
         method:      'DELETE',

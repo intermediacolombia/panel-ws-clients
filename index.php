@@ -112,7 +112,7 @@ window.PANEL_CONFIG = {
 
     <!-- Logout -->
     <div class="sidebar-logout">
-      <a href="logout.php" title="Cerrar sesión" onclick="return confirm('¿Cerrar sesión?')">
+      <a href="logout.php" title="Cerrar sesión" onclick="event.preventDefault();ConfirmModal.show({title:'Cerrar sesión',message:'¿Seguro que quieres salir?',icon:'warning',confirmText:'Salir',confirmClass:'btn-danger'}).then(ok=>{if(ok)location.href='logout.php'})">
         <i class="fas fa-sign-out-alt"></i>
         <span>Salir</span>
       </a>

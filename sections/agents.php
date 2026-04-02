@@ -305,8 +305,16 @@ window.AgentsPanel = (() => {
 
   async function toggle(id, currentStatus) {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    const msg = newStatus === 'inactive' ? '¿Desactivar este agente?' : '¿Activar este agente?';
-    if (!confirm(msg)) return;
+    const confirmed = await ConfirmModal.show({
+      title:        newStatus === 'inactive' ? 'Desactivar agente' : 'Activar agente',
+      message:      newStatus === 'inactive'
+                      ? 'El agente no podrá iniciar sesión mientras esté inactivo.'
+                      : '¿Confirmas que deseas activar este agente?',
+      icon:         newStatus === 'inactive' ? 'warning' : 'info',
+      confirmText:  newStatus === 'inactive' ? 'Desactivar' : 'Activar',
+      confirmClass: newStatus === 'inactive' ? 'btn-danger' : '',
+    });
+    if (!confirmed) return;
 
     const agent = _agents.find(a => a.id === id);
     if (!agent) return;
@@ -340,7 +348,14 @@ window.AgentsPanel = (() => {
   }
 
   async function destroy(id, name) {
-    if (!confirm(`¿Eliminar permanentemente al agente "${name}"?\n\nEsta acción no se puede deshacer. Sus conversaciones activas quedarán sin asignar.`)) return;
+    const confirmed = await ConfirmModal.show({
+      title:        'Eliminar agente',
+      message:      `¿Eliminar permanentemente a "${name}"? Sus conversaciones activas quedarán sin asignar. Esta acción no se puede deshacer.`,
+      icon:         'danger',
+      confirmText:  'Eliminar',
+      confirmClass: 'btn-danger',
+    });
+    if (!confirmed) return;
 
     try {
       const res  = await fetch('/api/agents.php', {
