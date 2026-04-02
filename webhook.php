@@ -450,7 +450,6 @@ function panelSetBot($phone, $clientId)
 {
     try {
         $pdo  = DB::get();
-        // Buscar por teléfono directamente para no depender del client_id
         $pdo->prepare(
             "UPDATE conversations
              SET status = 'bot', updated_at = NOW()
@@ -459,6 +458,27 @@ function panelSetBot($phone, $clientId)
         wlog("panelSetBot: $phone → bot");
     } catch (PDOException $e) {
         wlog("DB error panelSetBot: " . $e->getMessage());
+    }
+}
+
+/**
+ * Auto-resuelve una conversación desde el bot (sin agente).
+ * Usado para comprobantes fuera de horario: el sistema cierra la conv
+ * automáticamente después de confirmar la recepción del pago.
+ */
+function panelSetResolved($phone)
+{
+    try {
+        $pdo = DB::get();
+        $pdo->prepare(
+            "UPDATE conversations
+             SET status = 'resolved', resolved_at = NOW(), agent_id = NULL,
+                 assigned_at = NULL, updated_at = NOW()
+             WHERE phone = ? AND status IN ('attending','pending','bot')"
+        )->execute([$phone]);
+        wlog("panelSetResolved: $phone → resolved (auto)");
+    } catch (PDOException $e) {
+        wlog("DB error panelSetResolved: " . $e->getMessage());
     }
 }
 
@@ -743,34 +763,48 @@ if ($esMultimedia || empty($mensaje)) {
     $estadoTemp2  = $sesDataTemp2['estado'] ?? null;
 
     if ($estadoTemp2 === 'espera_comprobante' && in_array($messageType, ['image', 'document', 'video'])) {
-        wlog("[$clientId] Comprobante recibido ($messageType) — pasando a asesor");
-        guardarEstado($sesKey, 'asesor', ['comprobante' => true]);
+        $abierto = empresaAbierta();
+        wlog("[$clientId] Comprobante recibido ($messageType) — horario=" . ($abierto ? 'abierto' : 'cerrado'));
 
-        // Notificar al panel web
+        // Registrar el comprobante en el panel (siempre, sin importar horario)
         notifyPanel($from, $nombre, $mensaje ?: '[comprobante]', $messageType, $clientId, 'Medios de Pago',
                     $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
 
-        // Notificar al asesor por WA
+        // Notificar al asesor por WA (siempre — los pagos son 24/7)
         notificarAsesor($nombre, $from, "Comprobante de pago recibido — pendiente validación", 'pagos');
 
-        if (empresaAbierta()) {
+        if ($abierto) {
+            // ── En horario: queda pendiente para que el agente lo valide ──
+            guardarEstado($sesKey, 'asesor', ['comprobante' => true]);
+
             $msgComprobante =
                 "✅ *¡Comprobante recibido!*\n\n" .
                 "Gracias por enviarlo. 🙏\n\n" .
-                "Vamos a validar tu pago y en unos minutos un asesor te contactará para confirmar la activación o renovación de tu servicio.\n\n" .
+                "Estamos en horario de atención — un asesor validará tu pago y te confirmará la activación o renovación de tu servicio en unos minutos.\n\n" .
                 "⏳ _Por favor espera, no es necesario escribir más._\n\n" .
                 "Escribe *Menú* si deseas volver al menú principal.";
+
+            wsSend($destino, $msgComprobante);
+
         } else {
+            // ── Fuera de horario: confirmar, resolver automáticamente y pasar al bot ──
             $msgComprobante =
                 "✅ *¡Comprobante recibido!*\n\n" .
                 "Gracias por enviarlo. 🙏\n\n" .
-                "En este momento estamos fuera de horario, pero *no te preocupes* — tu pago ya entró en revisión interna y será procesado.\n\n" .
-                "📅 El próximo día hábil un asesor te dará respuesta y confirmará la activación o renovación de tu servicio.\n\n" .
+                "En este momento estamos fuera de horario comercial, pero *no te preocupes* — tu pago quedó registrado y entrará en revisión.\n\n" .
+                "📧 *Recibirás la confirmación por correo electrónico* una vez sea procesado.\n\n" .
                 horarioTexto() .
-                "_No es necesario escribir más, te contactaremos pronto._ 😊\n\n" .
+                "_No es necesario escribir más. Te notificaremos pronto._ 😊\n\n" .
                 "Escribe *Menú* si deseas volver al menú principal.";
+
+            wsSend($destino, $msgComprobante);
+
+            // Auto-resolver la conversación y devolver al bot
+            panelSetResolved($from);
+            guardarEstado($sesKey, null); // bot retoma el control
+            wlog("[$clientId] Comprobante fuera de horario — conversación auto-resuelta");
         }
-        wsSend($destino, $msgComprobante);
+
         http_response_code(200); exit('OK');
     }
 
