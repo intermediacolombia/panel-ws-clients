@@ -1565,6 +1565,7 @@ input, textarea { font-family: inherit; }
   transition: background 0.15s, color 0.15s;
 }
 .btn-icon:hover { background: var(--verde-mid); color: var(--blanco); }
+.btn-icon-danger:hover { background: #ef4444 !important; color: #fff !important; }
 
 /* ── Chips de departamento ──────────────────────────────────── */
 .dept-chip {

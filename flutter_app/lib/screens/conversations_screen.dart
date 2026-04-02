@@ -91,7 +91,16 @@ class _ConversationsScreenState extends State<ConversationsScreen>
 
   void _showLongPressMenu(Conversation conv) {
     final chat         = context.read<ChatProvider>();
-    final canTransfer  = conv.status == 'attending';
+    final me           = context.read<AuthProvider>().agent;
+    final isSupervisor = me?.isSupervisor ?? false;
+    final attendedByOther = conv.status == 'attending' &&
+        conv.agentId != null &&
+        conv.agentId != me?.id &&
+        !isSupervisor;
+
+    if (attendedByOther) return; // otro agente lo está atendiendo
+
+    final canTransfer   = conv.status == 'attending';
     final canReleaseBot = conv.status == 'attending' || conv.status == 'pending' || conv.status == 'resolved';
 
     if (!canTransfer && !canReleaseBot) return;

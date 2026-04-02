@@ -192,6 +192,9 @@ window.AgentsPanel = (() => {
             <button class="btn-icon" onclick="AgentsPanel.toggle(${a.id},'${a.status}')" title="${a.status==='active'?'Desactivar':'Activar'}">
               <i class="fas fa-${a.status==='active'?'ban':'check'}"></i>
             </button>
+            <button class="btn-icon btn-icon-danger" onclick="AgentsPanel.destroy(${a.id},'${esc(a.name)}')" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         </td>
       </tr>`;
@@ -336,6 +339,28 @@ window.AgentsPanel = (() => {
     }
   }
 
+  async function destroy(id, name) {
+    if (!confirm(`¿Eliminar permanentemente al agente "${name}"?\n\nEsta acción no se puede deshacer. Sus conversaciones activas quedarán sin asignar.`)) return;
+
+    try {
+      const res  = await fetch('/api/agents.php', {
+        method:      'DELETE',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        Notify.showToast('Agente eliminado.', 'success');
+        await load();
+      } else {
+        Notify.showToast(json.error || 'Error al eliminar.', 'error');
+      }
+    } catch (_) {
+      Notify.showToast('Error de red.', 'error');
+    }
+  }
+
   function _showError(msg) {
     const el  = document.getElementById('agent-form-error');
     const span = el.querySelector('span');
@@ -356,6 +381,6 @@ window.AgentsPanel = (() => {
 
   init();
 
-  return { load, openCreate, openEdit, save, toggle };
+  return { load, openCreate, openEdit, save, toggle, destroy };
 })();
 </script>

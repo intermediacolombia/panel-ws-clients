@@ -179,7 +179,7 @@ try {
         exit;
     }
 
-    // ── DELETE (desactivar) ──────────────────────────────────────
+    // ── DELETE (borrado físico) ──────────────────────────────────
     if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         $raw  = file_get_contents('php://input');
         $data = json_decode($raw, true);
@@ -192,19 +192,37 @@ try {
             exit;
         }
 
-        // No desactivar al propio admin logueado
         if ($agentId === $currentAgent['id']) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'No puedes desactivar tu propia cuenta.']);
+            echo json_encode(['success' => false, 'error' => 'No puedes eliminar tu propia cuenta.']);
             exit;
         }
 
-        // Invalidar sesiones del agente
-        $pdo->prepare('DELETE FROM agent_sessions WHERE agent_id = ?')
-            ->execute([$agentId]);
+        // Verificar que el agente existe
+        $chk = $pdo->prepare('SELECT id FROM agents WHERE id = ? LIMIT 1');
+        $chk->execute([$agentId]);
+        if (!$chk->fetch()) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Agente no encontrado.']);
+            exit;
+        }
 
-        $pdo->prepare("UPDATE agents SET status = 'inactive', updated_at = NOW() WHERE id = ?")
-            ->execute([$agentId]);
+        // Conversaciones asignadas → liberar (pending si estaba attending)
+        $pdo->prepare(
+            "UPDATE conversations
+             SET agent_id = NULL,
+                 status   = CASE WHEN status = 'attending' THEN 'pending' ELSE status END,
+                 updated_at = NOW()
+             WHERE agent_id = ?"
+        )->execute([$agentId]);
+
+        // Limpiar tablas relacionadas
+        $pdo->prepare('DELETE FROM agent_sessions    WHERE agent_id = ?')->execute([$agentId]);
+        $pdo->prepare('DELETE FROM agent_departments WHERE agent_id = ?')->execute([$agentId]);
+        $pdo->prepare('DELETE FROM notifications     WHERE agent_id = ?')->execute([$agentId]);
+
+        // Borrado físico del agente
+        $pdo->prepare('DELETE FROM agents WHERE id = ?')->execute([$agentId]);
 
         echo json_encode(['success' => true]);
         exit;

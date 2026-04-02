@@ -251,8 +251,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final chat = context.read<ChatProvider>();
     final conv = chat.activeConversation ?? widget.conversation;
     final me   = context.read<AuthProvider>().agent;
-    final isAssigned  = conv.agentId == me?.id;
+    final isAssigned   = conv.agentId == me?.id;
     final isSupervisor = me?.isSupervisor ?? false;
+    final attendedByOther = conv.status == 'attending' &&
+        conv.agentId != null &&
+        !isAssigned &&
+        !isSupervisor;
+
+    if (attendedByOther) return; // bloquear menú si otro agente lo atiende
 
     showModalBottomSheet(
       context: context,
@@ -431,16 +437,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Barra de entrada — usa activeConversation para reflejar cambios de estado en tiempo real
           Consumer<ChatProvider>(
-            builder: (_, chat, __) => _InputBar(
-              conv: chat.activeConversation ?? conv,
-              inputCtrl: _inputCtrl,
-              focusNode: _focusNode,
-              showEmoji: _showEmoji,
-              onSend: _send,
-              onToggleEmoji: _toggleEmoji,
-              onToggleQR: _toggleQR,
-              onAttach: _showAttachmentSheet,
-            ),
+            builder: (_, chat, __) {
+              final me = context.read<AuthProvider>().agent;
+              return _InputBar(
+                conv:         chat.activeConversation ?? conv,
+                myAgentId:    me?.id,
+                isSupervisor: me?.isSupervisor ?? false,
+                inputCtrl:    _inputCtrl,
+                focusNode:    _focusNode,
+                showEmoji:    _showEmoji,
+                onSend:       _send,
+                onToggleEmoji: _toggleEmoji,
+                onToggleQR:   _toggleQR,
+                onAttach:     _showAttachmentSheet,
+              );
+            },
           ),
 
           // Emoji picker
@@ -596,6 +607,8 @@ class _MessageList extends StatelessWidget {
 
 class _InputBar extends StatelessWidget {
   final Conversation conv;
+  final int? myAgentId;
+  final bool isSupervisor;
   final TextEditingController inputCtrl;
   final FocusNode focusNode;
   final bool showEmoji;
@@ -606,6 +619,8 @@ class _InputBar extends StatelessWidget {
 
   const _InputBar({
     required this.conv,
+    required this.myAgentId,
+    required this.isSupervisor,
     required this.inputCtrl,
     required this.focusNode,
     required this.showEmoji,
@@ -615,7 +630,23 @@ class _InputBar extends StatelessWidget {
     required this.onAttach,
   });
 
-  bool get _canSend => conv.status != 'resolved' && conv.status != 'bot';
+  bool get _attendedByOther =>
+      conv.status == 'attending' &&
+      conv.agentId != null &&
+      conv.agentId != myAgentId &&
+      !isSupervisor;
+
+  bool get _canSend =>
+      conv.status != 'resolved' &&
+      conv.status != 'bot' &&
+      !_attendedByOther;
+
+  String get _blockedMessage {
+    if (conv.status == 'resolved') return '🔒 Conversación resuelta. Usa el menú ⋮ para reabrirla.';
+    if (conv.status == 'bot')      return '🤖 En modo bot. Usa el menú ⋮ para asignarte.';
+    if (_attendedByOther)          return '👤 Siendo atendida por ${conv.agentName ?? 'otro agente'}. Solo puedes leer.';
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -628,9 +659,7 @@ class _InputBar extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: Text(
-            conv.status == 'resolved'
-                ? '🔒 Conversación resuelta. Usa el menú ⋮ para reabrirla.'
-                : '🤖 En modo bot. Usa el menú ⋮ para asignarte.',
+            _blockedMessage,
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
           ),
