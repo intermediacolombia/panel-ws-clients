@@ -10,27 +10,18 @@
  */
 
 // ══════════════════════════════════════════════════════════════
-//  CONFIGURACIÓN DEL PANEL (solo lo que SysGym no provee)
+//  CONFIGURACIÓN — cargada desde config.php del panel
+//  (PANEL_URL, AGENT_SECRET, DB_*, WA_API_KEY, WA_CLIENT_ID)
 // ══════════════════════════════════════════════════════════════
-define('PANEL_URL',     'https://whatsapp.activgym.com.co');  // URL pública del panel de ActivGym
-define('AGENT_SECRET',  '3RYj2gjSBiusBKlHZBq2btRK77B8dPDYb8pV2SiaHykvvXD4j8v7e2kd1HIGCl9i');               // Copiar de config.php del panel de ActivGym
-define('GYM_CLIENT_ID', 'activgym');                         // Debe coincidir con client_id de la API WA
-define('GYM_DEPT_SLUG', 'atencion');                         // Slug del departamento en el panel
-define('GYM_LOG_FILE',  __DIR__ . '/webhook-activgym.log');
+require_once __DIR__ . '/config.php';
 
-// BD del panel de ActivGym (distinta a la BD de SysGym)
-define('PANEL_DB_HOST', 'intermediahost.co');
-define('PANEL_DB_PORT', '3306');
-define('PANEL_DB_NAME', 'inte_whatsapp_activ');
-define('PANEL_DB_USER', 'inte_whatsapp_activ');
-define('PANEL_DB_PASS', '+GLMoLvFhcn-ssvq');
+define('GYM_CLIENT_ID', WA_CLIENT_ID);  // viene de config-general.php
+define('GYM_DEPT_SLUG', 'atencion');    // Slug del departamento en el panel
+define('GYM_LOG_FILE',  __DIR__ . '/webhook-activgym.log');
 
 // ── Config de SysGym — provee: NAME_GYM, TEL_GYM, WA_API_URL,
 //    DAYS_ALLOWED_BEFORE_DUE, EXCLUDE_WS_MENU, URLBASE, db() ─
 require_once '/home/activgym/app.activgym.com.co/inc/config.php';
-
-// La API key viene como variable desde SysGym config
-define('GYM_WA_API_KEY', $api_ws);
 
 // ── Timeouts de estado ───────────────────────────────────────
 define('MENU_TIMEOUT_SECS',   5 * 60);
@@ -340,7 +331,7 @@ function wsSend(string $telefono, string $mensaje, ?string $pdfUrl = null): bool
         CURLOPT_POST           => true,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_HTTPHEADER     => [
-            'Authorization: Bearer ' . GYM_WA_API_KEY,
+            'Authorization: Bearer ' . WA_API_KEY,
             'Content-Type: application/json',
             'Accept: application/json',
         ],
@@ -362,9 +353,9 @@ function panelDb(): PDO
 {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = 'mysql:host=' . PANEL_DB_HOST . ';port=' . PANEL_DB_PORT
-             . ';dbname=' . PANEL_DB_NAME . ';charset=utf8mb4';
-        $pdo = new PDO($dsn, PANEL_DB_USER, PANEL_DB_PASS, [
+        $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT
+             . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
@@ -551,7 +542,7 @@ function notificarAsesor(string $nombreCliente, string $from, string $motivo): v
             CURLOPT_POST           => true,
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_HTTPHEADER     => [
-                'Authorization: Bearer ' . GYM_WA_API_KEY,
+                'Authorization: Bearer ' . WA_API_KEY,
                 'Content-Type: application/json',
                 'Accept: application/json',
             ],
@@ -1150,7 +1141,7 @@ if ($estado === 'asesor') {
                     'url'         => $pdfUrl,
                 ], JSON_UNESCAPED_UNICODE),
                 CURLOPT_HTTPHEADER => [
-                    'Authorization: Bearer ' . GYM_WA_API_KEY,
+                    'Authorization: Bearer ' . WA_API_KEY,
                     'Content-Type: application/json',
                     'Accept: application/json',
                 ],
