@@ -1013,13 +1013,15 @@ if ($estado === 'asesor') {
                 "👤 Área de Cliente: http://clientes.intermediahost.co\n" .
                 "🎫 Crear Ticket: https://clientes.intermediahost.co/submitticket.php\n\n" .
                 "Escribe *Menú* si deseas volver al menú principal.";
+            guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Soporte - ' . $servicio]);
+            wlog("[$clientId] TICKET SOPORTE: $nombre ($from) — $servicio");
+            notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte - ' . $servicio);
+            notificarAsesor($nombre, $from, "Soporte Técnico — {$servicio}", 'soporte');
         } else {
             $respuesta = mensajeAusenciaSoporte($servicio);
+            guardarEstado($sesKey, 'menu_principal');
+            wlog("[$clientId] Soporte fuera de horario: $nombre — $servicio");
         }
-        guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Soporte - ' . $servicio]);
-        wlog("[$clientId] TICKET SOPORTE: $nombre ($from) — $servicio");
-        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte - ' . $servicio);
-        notificarAsesor($nombre, $from, "Soporte Técnico — {$servicio}", 'soporte');
     } else {
         $respuesta = "⚠️ Opción no válida.\n\n" . menuSoporte();
     }
