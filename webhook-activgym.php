@@ -325,7 +325,7 @@ function wsSend(string $telefono, string $mensaje, ?string $pdfUrl = null): bool
     $payload = ['phonenumber' => $telefono, 'text' => $mensaje];
     if ($pdfUrl) $payload['url'] = $pdfUrl;
 
-    $ch = curl_init(rtrim(WA_API_URL, '/') . '/send');
+    $ch = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
@@ -534,7 +534,7 @@ function notificarAsesor(string $nombreCliente, string $from, string $motivo): v
         return;
     }
 
-    $endpoint = rtrim(WA_API_URL, '/') . '/send';
+    $endpoint = rtrim(WA_API_URL, '/') . '/api/send';
     foreach ($numeros as $numero) {
         $ch = curl_init($endpoint);
         curl_setopt_array($ch, [
@@ -1131,7 +1131,7 @@ if ($estado === 'asesor') {
         guardarEstado($sesKey, 'menu_principal');
 
         if ($pdfUrl) {
-            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/send');
+            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
             curl_setopt_array($chPdf, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_POST           => true,
