@@ -653,6 +653,55 @@ function menuSoporte()
         "Escribe *Menú* para volver al menú principal.";
 }
 
+function mensajeSoporteApp()
+{
+    return
+        "📱 *Guía para mejorar la reproducción en la App*\n\n" .
+        "Entendemos que puede ser frustrante. A continuación te compartimos los consejos más importantes para que disfrutes las emisoras sin interrupciones:\n\n" .
+
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "🔋 *1. Optimización de batería (causa más común)*\n" .
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "Android tiene un sistema de ahorro de energía que *suspende automáticamente* las apps en segundo plano para conservar batería. Esto corta la reproducción de audio aunque la app esté abierta.\n\n" .
+        "✅ *¿Cómo solucionarlo?*\n" .
+        "En la app, toca los *tres puntos ⋮* (esquina superior)\n" .
+        "→ ⚙️ *Configuraciones*\n" .
+        "→ *Optimización de Batería*\n" .
+        "→ Selecciona la opción para que Android *excluya la app* de la optimización.\n\n" .
+        "También puedes hacerlo desde los ajustes de tu celular:\n" .
+        "_Ajustes → Batería → Optimización de batería → busca la app → selecciona \"No optimizar\"_\n\n" .
+
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "📶 *2. Calidad y estabilidad de tu conexión a internet*\n" .
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "Las emisoras transmiten *audio en tiempo real (streaming en vivo)*. Esto significa que cualquier interrupción en tu red se traduce directamente en cortes de audio.\n\n" .
+        "🔎 *Revisa lo siguiente:*\n" .
+        "• Verifica que tengas al menos *3 barras de señal* (WiFi o datos móviles)\n" .
+        "• En zonas rurales o alejadas, la señal puede ser inestable — prueba conectarte desde un lugar con mejor cobertura\n" .
+        "• Si usas datos móviles, considera cambiar entre *4G y 3G* en los ajustes de red\n" .
+        "• Reinicia tu router WiFi si la conexión está lenta\n" .
+        "• Cierra otras apps que consuman internet en segundo plano (YouTube, actualizaciones automáticas, etc.)\n\n" .
+
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "📱 *3. Modelo y versión del dispositivo*\n" .
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "Algunos modelos de celular (especialmente de gama baja o versiones antiguas de Android) tienen restricciones más agresivas en segundo plano que pueden afectar la reproducción.\n\n" .
+        "💡 *Consejos:*\n" .
+        "• Mantén tu *Android actualizado* a la última versión disponible para tu equipo\n" .
+        "• Cierra aplicaciones pesadas antes de reproducir (cámara, juegos, etc.)\n" .
+        "• Si tienes poca memoria RAM disponible, reinicia el dispositivo antes de usar la app\n\n" .
+
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "ℹ️ *Información importante*\n" .
+        "━━━━━━━━━━━━━━━━━━━━\n" .
+        "Somos la plataforma tecnológica que transmite el audio. El *contenido, la calidad del audio y la estabilidad del servidor de la emisora* son responsabilidad directa de cada estación de radio. Hacemos nuestro mejor esfuerzo para garantizar la mejor transmisión posible.\n\n" .
+
+        "🎙️ *¿Sigues con problemas?*\n" .
+        "Si después de aplicar estos consejos el problema persiste, te recomendamos *contactar directamente a la emisora* a través de sus canales de contacto disponibles en la app (redes sociales, teléfono, correo, etc.). Ellos podrán verificar el estado de su transmisión.\n\n" .
+
+        "¡Esperamos que estos consejos te ayuden! 🎵";
+}
+
 function mediosDePago()
 {
     return
@@ -880,6 +929,29 @@ if ($estado === 'asesor') {
             http_response_code(200); exit('OK');
         }
     }
+
+// ── A2. Mensaje especial — soporte reproducción en la APP ────
+} elseif (trim($mensaje) === 'Tengo problemas para reproducir en la APP') {
+    guardarEstado($sesKey, 'soporte_app_paso1');
+    $respuesta = mensajeSoporteApp();
+    wlog("[$clientId] SOPORTE APP inicio: $nombre ($from)");
+
+// ── A3. Soporte app — respuesta de cierre ────────────────────
+} elseif ($estado === 'soporte_app_paso1') {
+    guardarEstado($sesKey, 'soporte_app_paso2');
+    $respuesta =
+        "Gracias por tu mensaje. 🙏\n\n" .
+        "Por el momento, esa es *toda la información* que podemos brindarte sobre la reproducción en la app.\n\n" .
+        "Esperamos que los consejos hayan sido de ayuda. Si en el futuro tienes alguna otra consulta sobre nuestros servicios, con gusto te atendemos. 😊\n\n" .
+        "🌐 Te invitamos a visitar nuestro sitio web:\n" .
+        "https://www.intermediahost.co\n\n" .
+        "¡Gracias por contactarnos y que disfrutes la radio! 🎵";
+    wlog("[$clientId] SOPORTE APP paso2 (cierre): $nombre ($from)");
+
+// ── A4. Soporte app — disparar menú tras segunda respuesta ───
+} elseif ($estado === 'soporte_app_paso2') {
+    wlog("[$clientId] SOPORTE APP paso3 (disparando menú): $nombre ($from)");
+    $respuesta = resetMenu($sesKey, $nombre);
 
 // ── B. Reset por navegación o saludo ────────────────────────
 } elseif (esReset($mensaje) || esSaludo($mensajeLower)) {
