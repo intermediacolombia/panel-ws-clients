@@ -13,6 +13,8 @@ define('API_KEY',  'eT3mUGe7S0CE0YEbTPJvBFpBA6VsqnzDO546Y');
 define('API_URL',  'https://api.intermediahost.co/api/send');
 define('LOG_FILE', __DIR__ . '/webhook-log.txt');
 
+
+
 define('MENU_TIMEOUT_SECS',   10 * 60);
 define('ASESOR_TIMEOUT_SECS', 45 * 60);
 
