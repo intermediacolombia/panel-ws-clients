@@ -653,8 +653,12 @@ function menuSoporte()
         "Escribe *Menú* para volver al menú principal.";
 }
 
-function mensajeSoporteApp()
+function mensajeSoporteApp($estacion = '')
 {
+    $contactoEmisora = $estacion
+        ? "te recomendamos *contactar directamente a {$estacion}*"
+        : "te recomendamos *contactar directamente a la emisora*";
+
     return
         "📱 *Guía para mejorar la reproducción en la App*\n\n" .
         "Entendemos que puede ser frustrante. A continuación te compartimos los consejos más importantes para que disfrutes las emisoras sin interrupciones:\n\n" .
@@ -697,7 +701,7 @@ function mensajeSoporteApp()
         "Somos la plataforma tecnológica que transmite el audio. El *contenido, la calidad del audio y la estabilidad del servidor de la emisora* son responsabilidad directa de cada estación de radio. Hacemos nuestro mejor esfuerzo para garantizar la mejor transmisión posible.\n\n" .
 
         "🎙️ *¿Sigues con problemas?*\n" .
-        "Si después de aplicar estos consejos el problema persiste, te recomendamos *contactar directamente a la emisora* a través de sus canales de contacto disponibles en la app (redes sociales, teléfono, correo, etc.). Ellos podrán verificar el estado de su transmisión.\n\n" .
+        "Si después de aplicar estos consejos el problema persiste, {$contactoEmisora} a través de sus canales de contacto disponibles en la app (redes sociales, teléfono, correo, etc.). Ellos podrán verificar el estado de su transmisión.\n\n" .
 
         "¡Esperamos que estos consejos te ayuden! 🎵";
 }
@@ -930,14 +934,35 @@ if ($estado === 'asesor') {
         }
     }
 
+// ── A1b. Interés en App iOS ──────────────────────────────────
+} elseif (preg_match('/hola[!.]?\s+me\s+interesa\s+la\s+app\s+ios\s+para\s+mi\s+(radio|estaci[oó]n\s+de\s+tv)/iu', $mensaje)) {
+    guardarEstado($sesKey, 'menu_principal');
+    $respuesta =
+        "¡Hola! 😄🎉 ¡Qué emocionante que te interese la *App iOS*!\n\n" .
+        "📱 La App iOS tiene un costo de *$80 USD adicionales* al precio de tu plan de streaming actual. ¡Una inversión genial para llegar a todos los usuarios Apple! 🍎✨\n\n" .
+        "🔄 Además, cuenta con una *renovación anual de $15 USD* para mantenerla siempre activa y actualizada.\n\n" .
+        "Si deseas continuar o tienes alguna pregunta, con mucho gusto te atendemos. 😊\n\n" .
+        "Escribe *asesor* para hablar directamente con nosotros, o *Menú* para volver al menú principal.";
+    wlog("[$clientId] INTERÉS APP iOS: $nombre ($from) — \"$mensaje\"");
+
 // ── A2. Mensaje especial — soporte reproducción en la APP ────
 } elseif (trim($mensaje) === 'Tengo problemas para reproducir en la APP') {
-    guardarEstado($sesKey, 'soporte_app_paso1');
-    $respuesta = mensajeSoporteApp();
-    wlog("[$clientId] SOPORTE APP inicio: $nombre ($from)");
+    guardarEstado($sesKey, 'soporte_app_ask_estacion');
+    $respuesta =
+        "¡Hola! 😊 Gracias por contactarnos.\n\n" .
+        "Con gusto te ayudamos. ¿Podrías indicarme el *nombre de la estación* con la que tienes inconvenientes? 🎙️";
+    wlog("[$clientId] SOPORTE APP — preguntando nombre de estación: $nombre ($from)");
+
+// ── A2b. Soporte app — recibir nombre de estación y enviar guía ─
+} elseif ($estado === 'soporte_app_ask_estacion') {
+    $estacion = trim($mensaje);
+    guardarEstado($sesKey, 'soporte_app_paso1', ['estacion' => $estacion]);
+    $respuesta = mensajeSoporteApp($estacion);
+    wlog("[$clientId] SOPORTE APP guía enviada para estación \"$estacion\": $nombre ($from)");
 
 // ── A3. Soporte app — respuesta de cierre ────────────────────
 } elseif ($estado === 'soporte_app_paso1') {
+    $estacion = $sesData['data']['estacion'] ?? '';
     guardarEstado($sesKey, 'soporte_app_paso2');
     $respuesta =
         "Gracias por tu mensaje. 🙏\n\n" .
