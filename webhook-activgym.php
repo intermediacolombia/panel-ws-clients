@@ -769,31 +769,26 @@ function generarCertificado(string $doc, string $telefono): array
         $clienteId = $c['id'];
         $nombre    = trim($c['nombres'] . ' ' . $c['apellidos']);
         $baseUrl   = rtrim(URLBASE, '/');
-        $pdfSrcUrl = $baseUrl . '/pdf/?type=cert&id=' . $clienteId;
+        $pdfUrl    = $baseUrl . '/pdf/?type=cert&id=' . $clienteId;
 
-        $tempDir = __DIR__ . '/uploads/certs_activgym/';
-        if (!is_dir($tempDir)) mkdir($tempDir, 0755, true);
-
-        $pdfFilename = 'cert_' . $clienteId . '_' . time() . '.pdf';
-        $pdfFilePath = $tempDir . $pdfFilename;
-        $pdfUrl      = PANEL_URL . '/uploads/certs_activgym/' . $pdfFilename;
-
-        $ch2 = curl_init($pdfSrcUrl);
+        // Verificar que el PDF sea accesible antes de enviarlo
+        $ch2 = curl_init($pdfUrl);
         curl_setopt_array($ch2, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_TIMEOUT        => 15,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_NOBODY         => true,
         ]);
-        $pdfContent = curl_exec($ch2);
-        $pdfCode    = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-        $pdfError   = curl_error($ch2);
+        curl_exec($ch2);
+        $pdfCode  = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+        $pdfError = curl_error($ch2);
         curl_close($ch2);
 
-        wlog("CERT download: HTTP=$pdfCode err=$pdfError bytes=" . strlen($pdfContent ?: ''));
+        wlog("CERT check: HTTP=$pdfCode err=$pdfError url=$pdfUrl");
 
-        if ($pdfContent === false || $pdfCode !== 200 || strlen($pdfContent) < 100) {
+        if ($pdfCode !== 200) {
             return [
                 "⚠️ No fue posible generar tu certificado en este momento.\n\n" .
                 "Por favor intenta más tarde o escribe *Menú* para volver.",
@@ -801,8 +796,7 @@ function generarCertificado(string $doc, string $telefono): array
             ];
         }
 
-        file_put_contents($pdfFilePath, $pdfContent);
-        wlog("CERT generado: cliente=$clienteId doc=$doc archivo=$pdfFilename");
+        wlog("CERT listo: cliente=$clienteId doc=$doc url=$pdfUrl");
 
         return [
             "🏅 *¡Tu Certificado de Inscripción está listo!*\n\n" .
@@ -1135,10 +1129,13 @@ if ($estado === 'asesor') {
             curl_setopt_array($chPdf, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_POST           => true,
+                CURLOPT_TIMEOUT        => 20,
                 CURLOPT_POSTFIELDS     => json_encode([
                     'phonenumber' => $telefono,
                     'text'        => '📎 Certificado de Inscripción',
                     'url'         => $pdfUrl,
+                    'filename'    => 'Certificado_Inscripcion.pdf',
+                    'caption'     => '📎 Certificado de Inscripción',
                 ], JSON_UNESCAPED_UNICODE),
                 CURLOPT_HTTPHEADER => [
                     'Authorization: Bearer ' . WA_API_KEY,
@@ -1150,7 +1147,7 @@ if ($estado === 'asesor') {
             $codePdf = curl_getinfo($chPdf, CURLINFO_HTTP_CODE);
             curl_close($chPdf);
             $okPdf = ($codePdf >= 200 && $codePdf < 300 && !empty(json_decode($respPdf, true)['success']));
-            wlog("[$clientId] CERT send HTTP=$codePdf ok=" . ($okPdf ? 'SI' : 'NO'));
+            wlog("[$clientId] CERT send HTTP=$codePdf ok=" . ($okPdf ? 'SI' : 'NO') . " resp=" . substr($respPdf ?? '', 0, 120));
             wsSend($telefono, $textoCert);
         } else {
             wsSend($telefono, $textoCert);
