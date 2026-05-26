@@ -18,10 +18,14 @@ class ChatProvider extends ChangeNotifier {
   // ── Chat activo ──────────────────────────────────────────────
   Conversation? _activeConv;
   List<Message> _messages = [];
-  bool _loadingMsgs = false;
-  bool _sending     = false;
+  bool _loadingMsgs    = false;
+  bool _sending        = false;
+  bool _loadingOlder   = false;
+  bool _hasMoreMsgs    = false;
   String? _sendError;
   int _lastMessageId = 0; // para polling incremental
+
+  bool get hasMoreMessages => _hasMoreMsgs;
 
   Conversation? get activeConversation => _activeConv;
   List<Message> get messages           => _messages;
@@ -124,13 +128,38 @@ class ChatProvider extends ChangeNotifier {
 
     _loadingMsgs = false;
     if (res['success'] == true) {
-      _activeConv = Conversation.fromJson(
+      _activeConv  = Conversation.fromJson(
           res['conversation'] as Map<String, dynamic>);
-      _messages = _parseMsgs(res);
+      _messages    = _parseMsgs(res);
+      _hasMoreMsgs = res['has_more'] == true;
       _lastMessageId = _messages.isNotEmpty ? _messages.last.id : 0;
       _lastUnreadCounts[convId] = 0;
     }
     notifyListeners();
+  }
+
+  /// Carga mensajes anteriores al más antiguo visible (scroll hacia arriba).
+  Future<void> loadOlderMessages(int convId) async {
+    if (_loadingOlder || !_hasMoreMsgs || _messages.isEmpty) return;
+    _loadingOlder = true;
+
+    final oldestId = _messages.first.id;
+    final res = await ApiService.get(
+      ApiConstants.conversationUrl,
+      params: {'id': convId.toString(), 'before_id': oldestId.toString()},
+    );
+
+    _loadingOlder = false;
+    if (res['success'] == true) {
+      final older = _parseMsgs(res);
+      if (older.isNotEmpty) {
+        _messages    = [...older, ..._messages];
+        _hasMoreMsgs = res['has_more'] == true;
+        notifyListeners();
+      } else {
+        _hasMoreMsgs = false;
+      }
+    }
   }
 
   /// Polling incremental — solo trae mensajes nuevos después del último ID conocido.
@@ -335,5 +364,7 @@ class ChatProvider extends ChangeNotifier {
     _messages      = [];
     _sendError     = null;
     _lastMessageId = 0;
+    _hasMoreMsgs   = false;
+    _loadingOlder  = false;
   }
 }

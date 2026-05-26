@@ -39,6 +39,6 @@ if (!defined('SECURITY_HEADERS_SENT')) {
     define('SECURITY_HEADERS_SENT', true);
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: " . UPLOAD_URL . "; connect-src 'self';");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: " . UPLOAD_URL . "; connect-src 'self' https://cloudflareinsights.com;");
     header('Referrer-Policy: strict-origin-when-cross-origin');
 }

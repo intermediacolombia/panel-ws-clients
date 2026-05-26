@@ -46,6 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _showEmoji = false);
       }
     });
+    _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<ChatProvider>().openConversation(widget.conversation.id);
       _loaded = true;
@@ -53,6 +54,12 @@ class _ChatScreenState extends State<ChatScreen> {
       _startPolling();
       _loadQuickReplies();
     });
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels < 150) {
+      context.read<ChatProvider>().loadOlderMessages(widget.conversation.id);
+    }
   }
 
   @override

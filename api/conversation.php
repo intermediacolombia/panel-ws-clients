@@ -54,9 +54,11 @@ try {
         exit;
     }
 
-    // Obtener mensajes — si se pasa after_id solo devuelve nuevos (polling),
-    // si no, devuelve los últimos 100 (carga inicial)
-    $afterId = (int)($_GET['after_id'] ?? 0);
+    $afterId  = (int)($_GET['after_id']  ?? 0);
+    $beforeId = (int)($_GET['before_id'] ?? 0);
+    $msgLimit = max(1, min(200, (int)($_GET['msg_limit'] ?? 50)));
+
+    // ── Polling: solo mensajes nuevos ────────────────────────────
     if ($afterId > 0) {
         $msgStmt = $pdo->prepare(
             'SELECT m.*, a.name AS agent_name
@@ -76,10 +78,40 @@ try {
         }
         unset($msg);
 
-        // Respuesta ligera para polling — sin conversación ni historial previo
         echo json_encode([
             'success'  => true,
             'messages' => $messages,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    // ── Scroll hacia arriba: mensajes anteriores a before_id ─────
+    if ($beforeId > 0) {
+        $msgStmt = $pdo->prepare(
+            'SELECT * FROM (
+                SELECT m.*, a.name AS agent_name
+                FROM messages m
+                LEFT JOIN agents a ON a.id = m.agent_id
+                WHERE m.conversation_id = ? AND m.id < ?
+                ORDER BY m.created_at DESC
+                LIMIT ?
+             ) sub ORDER BY created_at ASC'
+        );
+        $msgStmt->execute([$convId, $beforeId, $msgLimit]);
+        $messages = $msgStmt->fetchAll();
+
+        foreach ($messages as &$msg) {
+            $msg['id']              = (int)$msg['id'];
+            $msg['conversation_id'] = (int)$msg['conversation_id'];
+            $msg['agent_id']        = $msg['agent_id'] !== null ? (int)$msg['agent_id'] : null;
+            $msg['file_size']       = $msg['file_size'] !== null ? (int)$msg['file_size'] : null;
+        }
+        unset($msg);
+
+        echo json_encode([
+            'success'    => true,
+            'messages'   => $messages,
+            'has_more'   => count($messages) === $msgLimit,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
@@ -93,7 +125,6 @@ try {
     $conv['department_id'] = $conv['department_id'] !== null ? (int)$conv['department_id'] : null;
     $conv['agent_id']      = $conv['agent_id'] !== null ? (int)$conv['agent_id'] : null;
 
-    $msgLimit = max(1, min(500, (int)($_GET['msg_limit'] ?? 100)));
     $msgStmt = $pdo->prepare(
         'SELECT * FROM (
             SELECT m.*, a.name AS agent_name
@@ -130,6 +161,7 @@ try {
         'success'       => true,
         'conversation'  => $conv,
         'messages'      => $messages,
+        'has_more'      => count($messages) === $msgLimit,
         'previousConvs' => $previousConvs,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

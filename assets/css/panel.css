@@ -663,6 +663,25 @@ input, textarea { font-family: inherit; }
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8b8a2' fill-opacity='0.12'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
+/* Indicador "hay mensajes anteriores" */
+.msg-more-indicator {
+  text-align: center;
+  padding: 6px 0 2px;
+}
+.msg-more-indicator span {
+  background: rgba(0,0,0,0.08);
+  color: var(--texto-suave);
+  font-size: .72rem;
+  padding: 3px 10px;
+  border-radius: 8px;
+}
+.msg-loader-top {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+[data-theme="dark"] .msg-more-indicator span { background: rgba(255,255,255,0.08); }
+
 /* Separador de fecha */
 .date-separator {
   text-align: center;

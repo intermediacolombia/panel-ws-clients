@@ -3,11 +3,13 @@
  */
 
 const Chat = (() => {
-  let _conv       = null;    // Conversación activa
-  let _messages   = [];      // Mensajes cargados
-  let _fileState  = null;    // Archivo pendiente de enviar { file, dataUrl, type }
-  let _sending    = false;
-  const _ppCache  = {};      // Cache foto de perfil: phone → url|false
+  let _conv         = null;   // Conversación activa
+  let _messages     = [];     // Mensajes cargados
+  let _fileState    = null;   // Archivo pendiente de enviar { file, dataUrl, type }
+  let _sending      = false;
+  let _hasMore      = false;  // Hay mensajes anteriores sin cargar
+  let _loadingMore  = false;  // Carga en curso (evitar doble request)
+  const _ppCache    = {};     // Cache foto de perfil: phone → url|false
 
   const el = {
     wrap:         () => document.getElementById('chat-wrap'),
@@ -32,6 +34,8 @@ const Chat = (() => {
 
   // ── Cargar conversación ────────────────────────────────────
   async function load(convId) {
+    _hasMore     = false;
+    _loadingMore = false;
     try {
       const res  = await fetch('/api/conversation.php?id=' + convId, {
         credentials: 'include',
@@ -44,11 +48,101 @@ const Chat = (() => {
       }
       _conv     = json.conversation;
       _messages = json.messages || [];
+      _hasMore  = json.has_more === true;
       _render();
       _renderInfo(json.conversation, json.previousConvs || []);
+      _initScrollLoader();
     } catch (e) {
       Notify.showToast('Error de red al cargar chat.', 'error');
     }
+  }
+
+  // ── Cargar mensajes más antiguos (scroll hacia arriba) ─────
+  async function _loadOlderMessages() {
+    if (_loadingMore || !_hasMore || !_conv || _messages.length === 0) return;
+    _loadingMore = true;
+
+    const oldestId  = _messages[0].id;
+    const container = el.messages();
+
+    // Indicador en la parte superior
+    const loader = document.createElement('div');
+    loader.id        = 'msg-loader-top';
+    loader.className = 'msg-loader-top';
+    loader.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>';
+    if (container) container.prepend(loader);
+
+    try {
+      const res  = await fetch('/api/conversation.php?id=' + _conv.id + '&before_id=' + oldestId, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      const json = await res.json();
+
+      if (json.success && json.messages && json.messages.length > 0) {
+        _hasMore = json.has_more === true;
+
+        // Preservar posición de scroll: medir altura antes de insertar
+        const prevHeight = container ? container.scrollHeight : 0;
+
+        // Renderizar y prepend al DOM
+        let lastDate = '';
+        const frag = document.createDocumentFragment();
+
+        json.messages.forEach(msg => {
+          const msgDate = msg.created_at ? msg.created_at.substring(0, 10) : '';
+          if (msgDate && msgDate !== lastDate) {
+            frag.appendChild(_buildDateSeparator(msg.created_at));
+            lastDate = msgDate;
+          }
+          frag.appendChild(renderBubble(msg));
+        });
+
+        // Reconstruir separadores en el primer mensaje antiguo que ya existía
+        // (pueden quedar duplicados de fecha — se evita comparando con el primer mensaje cargado)
+        if (container) {
+          loader.remove();
+          // Insertar antes del primer bubble existente
+          const firstBubble = container.querySelector('.bubble-wrap');
+          if (firstBubble) container.insertBefore(frag, firstBubble);
+          else container.prepend(frag);
+
+          // Restaurar scroll para que no salte
+          container.scrollTop += container.scrollHeight - prevHeight;
+        }
+
+        // Actualizar array de mensajes local
+        _messages = [...json.messages, ..._messages];
+
+        // Ocultar indicador de "hay más" si ya no quedan
+        _updateMoreIndicator();
+      } else {
+        _hasMore = false;
+        loader.remove();
+        _updateMoreIndicator();
+      }
+    } catch (_) {
+      loader.remove();
+    }
+
+    _loadingMore = false;
+  }
+
+  function _updateMoreIndicator() {
+    const ind = document.getElementById('msg-more-indicator');
+    if (!ind) return;
+    ind.style.display = _hasMore ? '' : 'none';
+  }
+
+  function _initScrollLoader() {
+    const container = el.messages();
+    if (!container) return;
+
+    // Limpiar listener anterior
+    container.onscroll = null;
+    container.addEventListener('scroll', () => {
+      if (container.scrollTop < 80) _loadOlderMessages();
+    }, { passive: true });
   }
 
   // ── Render completo ────────────────────────────────────────
@@ -241,6 +335,14 @@ const Chat = (() => {
 
     container.innerHTML = '';
     _messages = messages;
+
+    // Indicador "hay mensajes anteriores" en el tope
+    const moreInd = document.createElement('div');
+    moreInd.id           = 'msg-more-indicator';
+    moreInd.className    = 'msg-more-indicator';
+    moreInd.style.display = _hasMore ? '' : 'none';
+    moreInd.innerHTML    = '<span>Subir para ver mensajes anteriores</span>';
+    container.appendChild(moreInd);
 
     let lastDate = '';
     messages.forEach(msg => {
