@@ -54,7 +54,37 @@ try {
         exit;
     }
 
-    // Marcar como leída
+    // Obtener mensajes — si se pasa after_id solo devuelve nuevos (polling),
+    // si no, devuelve los últimos 100 (carga inicial)
+    $afterId = (int)($_GET['after_id'] ?? 0);
+    if ($afterId > 0) {
+        $msgStmt = $pdo->prepare(
+            'SELECT m.*, a.name AS agent_name
+             FROM messages m
+             LEFT JOIN agents a ON a.id = m.agent_id
+             WHERE m.conversation_id = ? AND m.id > ?
+             ORDER BY m.created_at ASC'
+        );
+        $msgStmt->execute([$convId, $afterId]);
+        $messages = $msgStmt->fetchAll();
+
+        foreach ($messages as &$msg) {
+            $msg['id']              = (int)$msg['id'];
+            $msg['conversation_id'] = (int)$msg['conversation_id'];
+            $msg['agent_id']        = $msg['agent_id'] !== null ? (int)$msg['agent_id'] : null;
+            $msg['file_size']       = $msg['file_size'] !== null ? (int)$msg['file_size'] : null;
+        }
+        unset($msg);
+
+        // Respuesta ligera para polling — sin conversación ni historial previo
+        echo json_encode([
+            'success'  => true,
+            'messages' => $messages,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    // ── Carga inicial ────────────────────────────────────────────
     $pdo->prepare('UPDATE conversations SET unread_count = 0 WHERE id = ?')
         ->execute([$convId]);
 
@@ -63,15 +93,18 @@ try {
     $conv['department_id'] = $conv['department_id'] !== null ? (int)$conv['department_id'] : null;
     $conv['agent_id']      = $conv['agent_id'] !== null ? (int)$conv['agent_id'] : null;
 
-    // Obtener mensajes ordenados cronológicamente
+    $msgLimit = max(1, min(500, (int)($_GET['msg_limit'] ?? 100)));
     $msgStmt = $pdo->prepare(
-        'SELECT m.*, a.name AS agent_name
-         FROM messages m
-         LEFT JOIN agents a ON a.id = m.agent_id
-         WHERE m.conversation_id = ?
-         ORDER BY m.created_at ASC'
+        'SELECT * FROM (
+            SELECT m.*, a.name AS agent_name
+            FROM messages m
+            LEFT JOIN agents a ON a.id = m.agent_id
+            WHERE m.conversation_id = ?
+            ORDER BY m.created_at DESC
+            LIMIT ?
+         ) sub ORDER BY created_at ASC'
     );
-    $msgStmt->execute([$convId]);
+    $msgStmt->execute([$convId, $msgLimit]);
     $messages = $msgStmt->fetchAll();
 
     foreach ($messages as &$msg) {

@@ -5,7 +5,9 @@
       "Bash(php -l D:/panel-agentes/api/settings.php)",
       "Bash(php -l D:/panel-agentes/sections/settings.php)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push *)",
+      "Bash(cd /d \"D:\\\\DESARROLLO WEB\\\\SOFTWARE EN LA NUBE\\\\PANEL WHATSAPP\")"
     ]
   }
 }

@@ -21,6 +21,7 @@ class ChatProvider extends ChangeNotifier {
   bool _loadingMsgs = false;
   bool _sending     = false;
   String? _sendError;
+  int _lastMessageId = 0; // para polling incremental
 
   Conversation? get activeConversation => _activeConv;
   List<Message> get messages           => _messages;
@@ -108,10 +109,11 @@ class ChatProvider extends ChangeNotifier {
 
   // ── Abrir conversación ───────────────────────────────────────
   Future<void> openConversation(int convId) async {
-    _activeConv  = null;
-    _messages    = [];
-    _sendError   = null;
-    _loadingMsgs = true;
+    _activeConv    = null;
+    _messages      = [];
+    _sendError     = null;
+    _loadingMsgs   = true;
+    _lastMessageId = 0;
     setActiveChatId(convId);
     notifyListeners();
 
@@ -125,29 +127,39 @@ class ChatProvider extends ChangeNotifier {
       _activeConv = Conversation.fromJson(
           res['conversation'] as Map<String, dynamic>);
       _messages = _parseMsgs(res);
+      _lastMessageId = _messages.isNotEmpty ? _messages.last.id : 0;
       _lastUnreadCounts[convId] = 0;
     }
     notifyListeners();
   }
 
-  /// Polling silencioso de mensajes.
+  /// Polling incremental — solo trae mensajes nuevos después del último ID conocido.
   Future<void> refreshMessages(int convId) async {
-    final res = await ApiService.get(
-      ApiConstants.conversationUrl,
-      params: {'id': convId.toString()},
-    );
+    final params = {'id': convId.toString()};
+    if (_lastMessageId > 0) params['after_id'] = _lastMessageId.toString();
+
+    final res = await ApiService.get(ApiConstants.conversationUrl, params: params);
     if (res['success'] != true) return;
 
-    final serverMsgs  = _parseMsgs(res);
-    final localFailed = _messages.where((m) => m.isLocalFailed).toList();
-    final merged      = [...serverMsgs, ...localFailed];
+    final newMsgs = _parseMsgs(res);
+    if (newMsgs.isEmpty) return;
 
-    if (merged.length != _messages.length) {
-      _messages   = merged;
+    // Si la respuesta incluye conversación (carga sin after_id), reemplazar todo
+    if (res.containsKey('conversation')) {
+      final localFailed = _messages.where((m) => m.isLocalFailed).toList();
+      _messages   = [...newMsgs, ...localFailed];
       _activeConv = Conversation.fromJson(
           res['conversation'] as Map<String, dynamic>);
-      notifyListeners();
+    } else {
+      // Respuesta ligera (after_id): solo append de mensajes nuevos
+      for (final msg in newMsgs) {
+        if (!_messages.any((m) => m.id == msg.id)) _messages.add(msg);
+      }
     }
+    _lastMessageId = _messages
+        .where((m) => !m.isLocalFailed && m.id > 0)
+        .fold(0, (max, m) => m.id > max ? m.id : max);
+    notifyListeners();
   }
 
   List<Message> _parseMsgs(Map<String, dynamic> res) =>
@@ -319,8 +331,9 @@ class ChatProvider extends ChangeNotifier {
 
   void clearActive() {
     setActiveChatId(null);
-    _activeConv = null;
-    _messages   = [];
-    _sendError  = null;
+    _activeConv    = null;
+    _messages      = [];
+    _sendError     = null;
+    _lastMessageId = 0;
   }
 }
