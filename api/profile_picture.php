@@ -35,6 +35,7 @@ $noneFile = PP_CACHE_DIR . $phone . '.none';
 
 // ── Caché negativo (no tiene foto) ──────────────────────────
 if (file_exists($noneFile) && (time() - filemtime($noneFile)) < PP_TTL_MISS) {
+    header('Cache-Control: public, max-age=' . PP_TTL_MISS);
     http_response_code(404);
     exit;
 }
@@ -59,7 +60,8 @@ if (rand(1, 100) === 1) {
 // ── Sin caché: consultar API de WhatsApp ────────────────────
 $result = apiGetProfilePicture($phone);
 if (!$result['success'] || empty($result['url'])) {
-    touch($noneFile);   // marcar como "sin foto"
+    touch($noneFile);
+    header('Cache-Control: public, max-age=' . PP_TTL_MISS);
     http_response_code(404);
     exit;
 }
@@ -81,6 +83,7 @@ $mime = strtolower(explode(';', $contentType ?? '')[0]);
 
 if (!$imageData || $httpCode < 200 || $httpCode >= 300 || !str_starts_with($mime, 'image/')) {
     touch($noneFile);
+    header('Cache-Control: public, max-age=' . PP_TTL_MISS);
     http_response_code(404);
     exit;
 }
