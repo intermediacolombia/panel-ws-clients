@@ -101,15 +101,21 @@ try {
         d.name  AS dept_name,
         d.color AS dept_color,
         d.icon  AS dept_icon,
-        (SELECT content FROM messages
-           WHERE conversation_id = c.id
-           ORDER BY created_at DESC LIMIT 1) AS last_message,
-        (SELECT direction FROM messages
-           WHERE conversation_id = c.id
-           ORDER BY created_at DESC LIMIT 1) AS last_direction
+        lm.content   AS last_message,
+        lm.direction AS last_direction
       FROM conversations c
-      LEFT JOIN agents      a ON a.id = c.agent_id
-      LEFT JOIN departments d ON d.id = c.department_id
+      LEFT JOIN agents      a  ON a.id = c.agent_id
+      LEFT JOIN departments d  ON d.id = c.department_id
+      LEFT JOIN (
+        SELECT m.conversation_id, m.content, m.direction
+        FROM messages m
+        INNER JOIN (
+          SELECT conversation_id, MAX(created_at) AS max_at
+          FROM messages
+          GROUP BY conversation_id
+        ) latest ON latest.conversation_id = m.conversation_id
+                 AND latest.max_at = m.created_at
+      ) lm ON lm.conversation_id = c.id
       WHERE {$whereStr}
       ORDER BY
         CASE c.status
