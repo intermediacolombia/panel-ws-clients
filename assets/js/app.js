@@ -467,6 +467,9 @@ const App = (() => {
     const isActive = convId === _currentConvId;
     const isOutgoing = msg.direction === 'out';
 
+    // Si es la conversación activa, agregar la burbuja siempre (independiente de si está en la lista)
+    if (isActive) Chat.appendMessage(msg);
+
     // Mover la conversación al tope de la lista (comportamiento tipo WhatsApp)
     const idx = _conversations.findIndex(c => c.id === convId);
     if (idx >= 0) {
@@ -487,9 +490,6 @@ const App = (() => {
         );
       }
     }
-
-    // Si es la conversación activa, agregar la burbuja (tanto in como out)
-    if (isActive) Chat.appendMessage(msg);
   }
 
   // Mueve una conversación al tope tras enviar un mensaje propio

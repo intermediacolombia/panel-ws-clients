@@ -199,16 +199,18 @@ try {
     // En modo bot-silencioso no incrementar unread (agentes no deben ver el badge)
     if ($isBotSilent) {
         $pdo->prepare(
-            'UPDATE conversations SET last_message_at = ?, updated_at = ? WHERE id = ?'
-        )->execute([$now, $now, $convId]);
+            'UPDATE conversations SET last_message_at = ?, last_message = ?, last_direction = ?, updated_at = ? WHERE id = ?'
+        )->execute([$now, $msgContent, 'in', $now, $convId]);
     } else {
         $pdo->prepare(
             'UPDATE conversations
-             SET unread_count  = unread_count + 1,
+             SET unread_count    = unread_count + 1,
                  last_message_at = ?,
+                 last_message    = ?,
+                 last_direction  = ?,
                  updated_at      = ?
              WHERE id = ?'
-        )->execute([$now, $now, $convId]);
+        )->execute([$now, $msgContent, 'in', $now, $convId]);
     }
 
     // 6. Crear notificaciones para agentes del departamento

@@ -124,8 +124,8 @@ try {
             )->execute(['attending', $currentAgent['id'], $now, $convId]);
         }
 
-        $pdo->prepare('UPDATE conversations SET last_message_at=?, updated_at=? WHERE id=?')
-            ->execute([$now, $now, $convId]);
+        $pdo->prepare('UPDATE conversations SET last_message_at=?, last_message=?, last_direction=?, updated_at=? WHERE id=?')
+            ->execute([$now, $message, 'out', $now, $convId]);
 
         // Leer mensaje insertado para devolver
         $msgStmt = $pdo->prepare('SELECT * FROM messages WHERE id = ? LIMIT 1');
@@ -274,8 +274,8 @@ try {
             )->execute(['attending', $currentAgent['id'], $now, $convId]);
         }
 
-        $pdo->prepare('UPDATE conversations SET last_message_at=?, updated_at=? WHERE id=?')
-            ->execute([$now, $now, $convId]);
+        $pdo->prepare('UPDATE conversations SET last_message_at=?, last_message=?, last_direction=?, updated_at=? WHERE id=?')
+            ->execute([$now, $caption ?: $content, 'out', $now, $convId]);
 
         $msgStmt = $pdo->prepare('SELECT * FROM messages WHERE id = ? LIMIT 1');
         $msgStmt->execute([$msgId]);

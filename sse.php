@@ -107,7 +107,7 @@ while (true) {
         $pdo->prepare('UPDATE agents SET last_seen = NOW() WHERE id = ?')
             ->execute([$agentId]);
 
-        $sinceStr = date('Y-m-d H:i:s', (int)$lastCheck);
+        $sinceStr = date('Y-m-d H:i:s', (int)$lastCheck - 1); // -1s: evita perder msgs en el mismo segundo; el cliente deduplica por id
 
         // ── Mensajes nuevos en conversaciones del agente ──
         // Incluye mensajes entrantes (in) y salientes del propio agente (out)
