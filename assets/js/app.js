@@ -6,7 +6,6 @@ const App = (() => {
   let _currentSection = 'conversations';
   let _currentConvId  = null;
   let _conversations  = [];
-  let _convListSig    = ''; // ponytail: fingerprint para evitar re-renders innecesarios
   let _realtime       = null;
   let _notifUnread    = 0;
   let _searchTimer    = null;
@@ -148,17 +147,9 @@ const App = (() => {
     } catch (_) {}
   }
 
-  function _convSig(convs) {
-    return convs.map(c => c.id + ':' + c.last_message_at + ':' + c.status + ':' + c.unread_count).join('|');
-  }
-
   function _renderConvList(convs) {
     const list = document.getElementById('conv-list');
     if (!list) return;
-
-    const sig = _convSig(convs);
-    if (sig === _convListSig) return; // nada cambió, no tocar el DOM
-    _convListSig = sig;
 
     if (convs.length === 0) {
       list.innerHTML = `<div class="conv-empty">
