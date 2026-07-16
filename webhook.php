@@ -14,7 +14,7 @@ define('API_URL',  'https://api.intermediahost.co/api/send');
 define('LOG_FILE', __DIR__ . '/webhook-log.txt');
 
 define('MENU_TIMEOUT_SECS',   10 * 60);
-define('ASESOR_TIMEOUT_SECS', 45 * 60);
+define('ASESOR_TIMEOUT_SECS', 6 * 60 * 60); // 6 horas sin interacción
 
 // ── Incluir config y DB del panel ───────────────────────────
 require_once __DIR__ . '/config.php';
@@ -507,12 +507,16 @@ function panelConvStatus($phone)
 
 function panelDevolvioBot($phone, $clientId)
 {
-    return panelConvStatus($phone) === 'bot';
+    $status = panelConvStatus($phone);
+    // El panel devolvió control al bot si está en 'bot' o ya fue resuelto
+    return $status === 'bot' || $status === 'resolved' || $status === null;
 }
 
 function panelEstaAtendiendo($phone)
 {
-    return panelConvStatus($phone) === 'attending';
+    $status = panelConvStatus($phone);
+    // 'pending' = esperando asesor, 'attending' = asesor activo — ambos bloquean el bot
+    return $status === 'attending' || $status === 'pending';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -862,6 +866,16 @@ if ($esMultimedia || empty($mensaje)) {
             wlog("[$clientId] Comprobante fuera de horario — conversación auto-resuelta");
         }
 
+        http_response_code(200); exit('OK');
+    }
+
+    // Sin asesor en bot_estados: verificar si el panel tiene la conv como 'attending'
+    // (cubre el caso donde bot_estados expiró pero el agente sigue activo en el panel)
+    if (panelEstaAtendiendo($from)) {
+        guardarEstado($sesKey, 'asesor');
+        notifyPanel($from, $nombre, $mensaje ?: '[multimedia]', $messageType, $clientId, '',
+                    $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
+        wlog("[$clientId] Multimedia — panel 'attending' detectado, sincronizado y registrado en panel");
         http_response_code(200); exit('OK');
     }
 

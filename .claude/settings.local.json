@@ -7,7 +7,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push *)",
-      "Bash(cd /d \"D:\\\\DESARROLLO WEB\\\\SOFTWARE EN LA NUBE\\\\PANEL WHATSAPP\")"
+      "Bash(cd /d \"D:\\\\DESARROLLO WEB\\\\SOFTWARE EN LA NUBE\\\\PANEL WHATSAPP\")",
+      "Bash(grep -n \"ADD PRIMARY\\\\|ADD UNIQUE\\\\|ADD KEY\\\\|CREATE INDEX\\\\|INSERT INTO \\\\`conversations\\\\`\\\\|INSERT INTO \\\\`messages\\\\`\" \"C:/Users/Intermedia Host/Downloads/inte_panelws.sql\")",
+      "Bash(grep -E \"\\\\.js$|\\\\.html$|assets|static|js\")"
     ]
   }
 }
