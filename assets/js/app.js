@@ -159,15 +159,80 @@ const App = (() => {
       return;
     }
 
-    list.innerHTML = convs.map(c => _buildConvItem(c)).join('');
+    // Eliminar estado vacío si existía
+    const empty = list.querySelector('.conv-empty');
+    if (empty) empty.remove();
+
+    // Mapa de ítems actuales en el DOM
+    const existing = {};
+    list.querySelectorAll('.conv-item[data-conv-id]').forEach(el => {
+      existing[el.dataset.convId] = el;
+    });
+
+    // Añadir/actualizar y reordenar sin destruir el DOM
+    convs.forEach((c, i) => {
+      const key = String(c.id);
+      let el = existing[key];
+
+      if (!el) {
+        // Ítem nuevo: crear e insertar
+        const tmp = document.createElement('div');
+        tmp.innerHTML = _buildConvItem(c);
+        el = tmp.firstChild;
+        list.appendChild(el);
+        const avatar = el.querySelector('.conv-avatar[data-phone]');
+        if (avatar) _applyListAvatar(avatar, c.phone);
+      } else {
+        // Ítem existente: actualizar solo los campos que cambian
+        _patchConvItem(el, c);
+        delete existing[key];
+      }
+
+      // Reordenar sin mover si ya está en posición correcta
+      if (list.children[i] !== el) list.insertBefore(el, list.children[i] || null);
+    });
+
+    // Eliminar ítems que ya no están en la lista
+    Object.values(existing).forEach(el => el.remove());
 
     // Marcar la activa
     if (_currentConvId) {
       const el = list.querySelector('[data-conv-id="' + _currentConvId + '"]');
       if (el) el.classList.add('selected');
     }
+  }
 
-    _loadListAvatars();
+  // Actualiza campos visuales de un ítem existente sin recrearlo
+  function _patchConvItem(el, c) {
+    const avatar = el.querySelector('.conv-avatar');
+    if (avatar && avatar.dataset.status !== c.status) {
+      avatar.className = 'conv-avatar ' + c.status;
+      avatar.dataset.status = c.status;
+    }
+
+    const preview = el.querySelector('.conv-preview');
+    const newPreview = c.last_message ? _truncate(c.last_message, 42) : '';
+    if (preview && preview.textContent !== newPreview) preview.textContent = newPreview;
+
+    const timeEl = el.querySelector('.conv-time');
+    if (timeEl && c.time_formatted && timeEl.textContent !== c.time_formatted) {
+      timeEl.textContent = c.time_formatted;
+    }
+
+    const unread = (c.id === _currentConvId) ? 0 : (parseInt(c.unread_count) || 0);
+    _updateConvItemUnread(c.id, unread);
+
+    const agentEl = el.querySelector('.conv-agent-label');
+    const newAgent = c.agent_name ? 'Agente: ' + c.agent_name : '';
+    if (agentEl && !newAgent) {
+      agentEl.remove();
+    } else if (!agentEl && newAgent) {
+      const meta = el.querySelector('.conv-meta');
+      if (meta) meta.insertAdjacentHTML('afterbegin',
+        `<span class="conv-agent-label">${_escHtml(newAgent)}</span>`);
+    } else if (agentEl && newAgent) {
+      agentEl.textContent = newAgent;
+    }
   }
 
   function _buildConvItem(c) {

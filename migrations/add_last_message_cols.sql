@@ -2,7 +2,7 @@
 -- Ejecutar una sola vez en producción
 
 ALTER TABLE messages
-  ADD INDEX IF NOT EXISTS idx_conv_created (conversation_id, created_at);
+  ADD INDEX idx_conv_created (conversation_id, created_at);
 
 ALTER TABLE conversations
   ADD COLUMN IF NOT EXISTS last_message   TEXT         NULL AFTER last_message_at,
