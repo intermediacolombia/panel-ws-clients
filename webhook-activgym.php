@@ -25,7 +25,7 @@ require_once '/home/activgym/app.activgym.com.co/inc/config.php';
 
 // ── Timeouts de estado ───────────────────────────────────────
 define('MENU_TIMEOUT_SECS',   5 * 60);
-define('ASESOR_TIMEOUT_SECS', 45 * 60);
+define('ASESOR_TIMEOUT_SECS', 6 * 60 * 60); // 6 horas sin interacción
 
 // ── Horarios del gym (por defecto, se puede sobreescribir desde BD) ──
 define('HORARIOS_GYM_DEFAULT',
@@ -495,9 +495,25 @@ function panelDevolvioAlBot(string $phone): bool
         $stmt    = panelDb()->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
         $stmt->execute([$convKey]);
         $row = $stmt->fetch();
-        return $row && in_array($row['status'], ['bot', 'resolved']);
+        // Devolvió al bot si está en 'bot', 'resolved', o no existe conversación
+        return !$row || in_array($row['status'], ['bot', 'resolved']);
     } catch (PDOException $e) {
         wlog("panelDevolvioAlBot DB error: " . $e->getMessage());
+        return false;
+    }
+}
+
+function panelEstaAtendiendo(string $phone): bool
+{
+    try {
+        $convKey = GYM_CLIENT_ID . '_' . $phone;
+        $stmt    = panelDb()->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
+        $stmt->execute([$convKey]);
+        $row = $stmt->fetch();
+        // 'pending' = esperando asesor, 'attending' = asesor activo — ambos bloquean el bot
+        return $row && in_array($row['status'], ['attending', 'pending']);
+    } catch (PDOException $e) {
+        wlog("panelEstaAtendiendo DB error: " . $e->getMessage());
         return false;
     }
 }
@@ -940,6 +956,15 @@ if ($esMultimedia || empty($mensaje)) {
         http_response_code(200); exit('OK');
     }
 
+    // Sin asesor en bot_estados: verificar si el panel tiene la conv activa
+    if (panelEstaAtendiendo($from)) {
+        guardarEstado($sesKey, 'asesor');
+        notifyPanel($phoneForPanel, $nombre, $mensaje ?: '[multimedia]', $messageType, 'Atención al Cliente',
+                    $mediaUrl, '', $mediaBase64, $mimetypeRaw, $mediaFilename);
+        wlog("[$clientId] Multimedia — panel 'attending/pending' detectado, sincronizado y registrado en panel");
+        http_response_code(200); exit('OK');
+    }
+
     $avisoTipo = [
         'image'    => '🖼️ imagen',
         'audio'    => '🎵 audio',
@@ -978,6 +1003,15 @@ try {
 $sesData = obtenerEstado($sesKey);
 $estado  = $sesData['estado'] ?? null;
 wlog("[$clientId] Estado: " . ($estado ?? 'NINGUNO') . ($estadoPrevio && !$estado ? " (expiró: $estadoPrevio)" : ''));
+
+// Sincronizar con el panel: si bot_estados no tiene 'asesor' pero el panel
+// tiene la conv como pending/attending, forzar estado asesor en el bot.
+if ($estado !== 'asesor' && panelEstaAtendiendo($from)) {
+    wlog("[$clientId] Panel tiene conv activa sin estado asesor — sincronizando");
+    guardarEstado($sesKey, 'asesor');
+    $sesData = ['estado' => 'asesor', 'data' => []];
+    $estado  = 'asesor';
+}
 
 $respuesta = null;
 $pdfUrl    = null;
@@ -1172,7 +1206,8 @@ if ($estado === 'asesor') {
 // ── H. Sin estado (primera vez o expirado) ───────────────────
 } else {
     wlog("[$clientId] Sin estado — menú inicial");
-    if ($estadoPrevio === 'asesor') {
+    if ($estadoPrevio === 'asesor' && !panelEstaAtendiendo($from)) {
+        // Estado asesor expiró Y el panel no tiene la conv activa: retomar bot
         wlog("[$clientId] Sesión asesor expirada — retomando bot");
         panelSetBot($from);
         $respuesta =
