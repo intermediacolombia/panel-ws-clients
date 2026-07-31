@@ -756,7 +756,7 @@ function generarCertificado(string $doc, string $telefono): array
                 "❌ No encontramos ningún cliente con el documento *{$doc}*.\n\n" .
                 "Verifica que sea correcto e inténtalo de nuevo, o escribe *Menú* para volver.\n\n" .
                 "Si aún no eres miembro, ¡es el momento perfecto para unirte! 💪",
-                null, null
+                null
             ];
         }
 
@@ -766,7 +766,7 @@ function generarCertificado(string $doc, string $telefono): array
                 "No es posible generar el certificado mientras tu plan esté congelado.\n\n" .
                 "Contáctanos para reactivar tu membresía. 💪\n\n" .
                 "Escribe *Menú* para volver al menú principal.",
-                null, null
+                null
             ];
         }
 
@@ -813,7 +813,7 @@ function generarCertificado(string $doc, string $telefono): array
             return [
                 "⚠️ No fue posible generar tu certificado en este momento.\n\n" .
                 "Por favor intenta más tarde o escribe *Menú* para volver.",
-                null, null
+                null
             ];
         }
 
@@ -828,12 +828,11 @@ function generarCertificado(string $doc, string $telefono): array
             "💪 ¡Sigue entrenando con todo!\n\n" .
             "Escribe *Menú* para volver al menú principal.",
             $pdfUrl,
-            base64_encode($pdfContent),
         ];
 
     } catch (Exception $e) {
         wlog("ERROR generarCertificado: " . $e->getMessage());
-        return ["⚠️ Ocurrió un error al generar el certificado. Por favor intenta más tarde.", null, null];
+        return ["⚠️ Ocurrió un error al generar el certificado. Por favor intenta más tarde.", null];
     }
 }
 
@@ -1162,37 +1161,14 @@ if ($estado === 'asesor') {
     if (preg_match('/^\d{5,15}$/', $mensaje)) {
         wlog("[$clientId] SOLICITUD CERT doc=$mensaje");
         wsSend($telefono, "⏳ Generando tu certificado, un momento por favor...");
-        [$textoCert, $pdfUrl, $pdfBase64] = generarCertificado($mensaje, $telefono);
+        [$textoCert, $pdfUrl] = generarCertificado($mensaje, $telefono);
         guardarEstado($sesKey, 'menu_principal');
 
-        if ($pdfUrl && !empty($pdfBase64)) {
-            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
-            curl_setopt_array($chPdf, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST           => true,
-                CURLOPT_TIMEOUT        => 20,
-                CURLOPT_POSTFIELDS     => json_encode([
-                    'phone'    => $telefono,
-                    'message'  => $textoCert,
-                    'base64'   => $pdfBase64,
-                    'filename' => 'Certificado_Inscripcion.pdf',
-                    'mimetype' => 'application/pdf',
-                ], JSON_UNESCAPED_UNICODE),
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: Bearer ' . WA_API_KEY,
-                    'Content-Type: application/json',
-                    'Accept: application/json',
-                ],
-            ]);
-            $respPdf = curl_exec($chPdf);
-            $codePdf = curl_getinfo($chPdf, CURLINFO_HTTP_CODE);
-            curl_close($chPdf);
-            $okPdf = ($codePdf >= 200 && $codePdf < 300 && !empty(json_decode($respPdf, true)['success']));
-            wlog("[$clientId] CERT enviar HTTP=$codePdf ok=" . ($okPdf ? 'SI' : 'NO') . " resp=" . substr($respPdf ?? '', 0, 200));
-            if (!$okPdf) wsSend($telefono, $textoCert . "\n\n📎 *Descarga tu certificado aquí:*\n" . $pdfUrl);
-        } else {
-            wsSend($telefono, $textoCert);
+        if ($pdfUrl) {
+            $okPdf = wsSend($telefono, '📎 Certificado de Inscripción', $pdfUrl);
+            wlog("[$clientId] CERT enviar ok=" . ($okPdf ? 'SI' : 'NO'));
         }
+        wsSend($telefono, $textoCert);
         http_response_code(200); exit('OK');
 
     } else {
