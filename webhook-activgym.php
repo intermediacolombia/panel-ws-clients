@@ -1171,7 +1171,7 @@ if ($estado === 'asesor') {
                 CURLOPT_POST           => true,
                 CURLOPT_TIMEOUT        => 20,
                 CURLOPT_POSTFIELDS     => json_encode([
-                    'phonenumber' => $telefono,
+                    'phonenumber' => $from,
                     'text'        => '📎 Certificado de Inscripción',
                     'url'         => $pdfUrl,
                     'filename'    => 'Certificado_Inscripcion.pdf',
