@@ -827,7 +827,7 @@ function generarCertificado(string $doc, string $telefono): array
             "_Guárdalo o compártelo cuando lo necesites._\n\n" .
             "💪 ¡Sigue entrenando con todo!\n\n" .
             "Escribe *Menú* para volver al menú principal.",
-            $pdfUrl
+            $pdfUrl,
         ];
 
     } catch (Exception $e) {
@@ -1167,6 +1167,7 @@ if ($estado === 'asesor') {
         if ($pdfUrl) {
             $okPdf = wsSend($telefono, '📎 Certificado de Inscripción', $pdfUrl);
             wlog("[$clientId] CERT enviar ok=" . ($okPdf ? 'SI' : 'NO'));
+            if (!$okPdf) $textoCert .= "\n\n📎 *Descarga tu certificado aquí:*\n" . $pdfUrl;
         }
         wsSend($telefono, $textoCert);
         http_response_code(200); exit('OK');
