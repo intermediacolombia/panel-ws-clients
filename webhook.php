@@ -777,10 +777,14 @@ if (!empty($messageType) && $messageType !== 'text') {
     wlog("[$clientId] MEDIA FIELDS: type=$messageType $mediaInfo keys=" . implode(',', array_keys($data)));
 }
 
-// Para enviar mensajes: usar jid completo @s.whatsapp.net si está disponible
-$destino = (strpos($jid, '@s.whatsapp.net') !== false) ? $jid : $from;
+// Para enviar mensajes: jid completo tiene prioridad (soporta @s.whatsapp.net y @lid)
+$destino = !empty($jid) ? $jid : $from;
 
-// Sesión siempre por número normalizado para evitar duplicados LID vs número
+// Sesión: usar parte numérica del jid si from está vacío (contactos LID)
+if (empty($from) && !empty($jid)) {
+    $from = preg_replace('/[^0-9+]/', '', explode('@', $jid)[0]);
+}
+
 $sesKey = $from . '_' . $clientId;
 
 if (empty($from)) { http_response_code(200); exit('OK'); }
