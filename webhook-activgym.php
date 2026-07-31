@@ -1164,11 +1164,9 @@ if ($estado === 'asesor') {
         [$textoCert, $pdfUrl] = generarCertificado($mensaje, $telefono);
         guardarEstado($sesKey, 'menu_principal');
 
-        if ($pdfUrl) {
-            $okPdf = wsSend($telefono, '📎 Certificado de Inscripción', $pdfUrl);
-            wlog("[$clientId] CERT enviar ok=" . ($okPdf ? 'SI' : 'NO'));
-        }
-        wsSend($telefono, $textoCert);
+        $okPdf = $pdfUrl && wsSend($telefono, $textoCert, $pdfUrl);
+        wlog("[$clientId] CERT enviar ok=" . ($okPdf ? 'SI' : 'NO'));
+        if (!$okPdf) wsSend($telefono, $textoCert);
         http_response_code(200); exit('OK');
 
     } else {
