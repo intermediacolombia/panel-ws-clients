@@ -1165,33 +1165,10 @@ if ($estado === 'asesor') {
         guardarEstado($sesKey, 'menu_principal');
 
         if ($pdfUrl) {
-            $chPdf = curl_init(rtrim(WA_API_URL, '/') . '/api/send');
-            curl_setopt_array($chPdf, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST           => true,
-                CURLOPT_TIMEOUT        => 20,
-                CURLOPT_POSTFIELDS     => json_encode([
-                    'phonenumber' => $telefono,
-                    'text'        => '📎 Certificado de Inscripción',
-                    'url'         => $pdfUrl,
-                    'filename'    => 'Certificado_Inscripcion.pdf',
-                    'caption'     => '📎 Certificado de Inscripción',
-                ], JSON_UNESCAPED_UNICODE),
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: Bearer ' . WA_API_KEY,
-                    'Content-Type: application/json',
-                    'Accept: application/json',
-                ],
-            ]);
-            $respPdf = curl_exec($chPdf);
-            $codePdf = curl_getinfo($chPdf, CURLINFO_HTTP_CODE);
-            curl_close($chPdf);
-            $okPdf = ($codePdf >= 200 && $codePdf < 300 && !empty(json_decode($respPdf, true)['success']));
-            wlog("[$clientId] CERT send HTTP=$codePdf ok=" . ($okPdf ? 'SI' : 'NO') . " resp=" . substr($respPdf ?? '', 0, 120));
-            wsSend($telefono, $textoCert);
-        } else {
-            wsSend($telefono, $textoCert);
+            $okPdf = wsSend($telefono, '📎 Certificado de Inscripción', $pdfUrl);
+            wlog("[$clientId] CERT enviar ok=" . ($okPdf ? 'SI' : 'NO'));
         }
+        wsSend($telefono, $textoCert);
         http_response_code(200); exit('OK');
 
     } else {
