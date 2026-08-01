@@ -91,6 +91,20 @@ CREATE TABLE `bot_estados` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
+--  TABLA: bot_contacts
+-- ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS `bot_contacts` (
+  `id`         int(11)      NOT NULL AUTO_INCREMENT,
+  `phone`      varchar(60)  NOT NULL,
+  `name`       varchar(100) NOT NULL DEFAULT '',
+  `client_id`  varchar(60)  NOT NULL,
+  `first_seen` datetime     NOT NULL,
+  `updated_at` datetime     NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_bot_contact` (`phone`, `client_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ──────────────────────────────────────────────────────────────
 --  TABLA: conversations
 -- ──────────────────────────────────────────────────────────────
 CREATE TABLE `conversations` (
