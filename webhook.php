@@ -446,16 +446,18 @@ function notifyPanel($phone, $name, $message, $messageType, $clientId, $area,
 //  El usuario escribió "menú" mientras estaba con un asesor.
 //  Actualiza directamente la BD para que el panel refleje status=bot.
 // ════════════════════════════════════════════════════════════════
-function panelSetBot($phone, $clientId)
+function panelSetBot($phone, $clientId, $jid = '')
 {
     try {
-        $pdo  = DB::get();
+        $pdo = DB::get();
+        $candidates = array_unique(array_filter([$phone, $jid]));
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
         $pdo->prepare(
             "UPDATE conversations
              SET status = 'bot', updated_at = NOW()
-             WHERE phone = ? AND status IN ('attending','pending')"
-        )->execute([$phone]);
-        wlog("panelSetBot: $phone → bot");
+             WHERE phone IN ($placeholders) AND status IN ('attending','pending')"
+        )->execute($candidates);
+        wlog("panelSetBot: $phone/$jid → bot");
     } catch (PDOException $e) {
         wlog("DB error panelSetBot: " . $e->getMessage());
     }
@@ -935,7 +937,7 @@ if ($estado === 'asesor') {
         // Usuario escribe "menú" → sale de modo asesor voluntariamente
         wlog("[$clientId] Salida de asesor por MENÚ");
         guardarEstado($sesKey, null);
-        panelSetBot($from, $clientId);   // actualizar panel a modo bot
+        panelSetBot($from, $clientId, $destino);   // actualizar panel a modo bot
         $respuesta = resetMenu($sesKey, $nombre);
     } else {
         // Verificar si el panel ya devolvió el control al bot
@@ -1198,7 +1200,7 @@ if ($estado === 'asesor') {
             "https://clientes.intermediahost.co/submitticket.php\n\n" .
             "Escribe *Menú* para volver al menú principal.";
         // Fuera de horario: pasar al bot en el panel y limpiar estado
-        panelSetBot($from, $clientId);
+        panelSetBot($from, $clientId, $destino);
         guardarEstado($sesKey, null);
         wlog("[$clientId] OTROS fuera de horario — pasado a bot, estado limpiado");
     }

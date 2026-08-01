@@ -473,15 +473,20 @@ function notifyPanel(string $phone, string $name, string $message, string $messa
     wlog("notifyPanel HTTP=$code area=$area phone=$phone" . ($err ? " err=$err" : '') . ' resp=' . substr($response ?? '', 0, 80));
 }
 
-function panelSetBot(string $phone): void
+function panelSetBot(string $phone, string $jid = ''): void
 {
     try {
-        $convKey = GYM_CLIENT_ID . '_' . $phone;
+        $candidates = array_unique(array_filter([
+            GYM_CLIENT_ID . '_' . $phone,
+            $jid ? GYM_CLIENT_ID . '_' . $jid : '',
+        ]));
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
+        $convKey = $candidates[0]; // para el log
         panelDb()->prepare(
             "UPDATE conversations
              SET status = 'bot', agent_id = NULL, unread_count = 0, updated_at = NOW()
-             WHERE conv_key = ? AND status IN ('pending','attending')"
-        )->execute([$convKey]);
+             WHERE conv_key IN ($placeholders) AND status IN ('pending','attending')"
+        )->execute($candidates);
         wlog("panelSetBot: $convKey → bot");
     } catch (PDOException $e) {
         wlog("panelSetBot DB error: " . $e->getMessage());
@@ -1030,7 +1035,7 @@ if ($estado === 'asesor') {
 
     } elseif (esSalidaAsesor($mensaje)) {
         wlog("[$clientId] Salida de asesor por MENÚ");
-        panelSetBot($from);
+        panelSetBot($from, $telefono);
         $respuesta = resetMenu($sesKey, $nombre);
 
     } else {
@@ -1188,7 +1193,7 @@ if ($estado === 'asesor') {
     if ($estadoPrevio === 'asesor' && !panelEstaAtendiendo($from, $telefono)) {
         // Estado asesor expiró Y el panel no tiene la conv activa: retomar bot
         wlog("[$clientId] Sesión asesor expirada — retomando bot");
-        panelSetBot($from);
+        panelSetBot($from, $telefono);
         $respuesta =
             "⏱️ _Tu conversación con el asesor finalizó por inactividad._\n\n" .
             "El bot retomó la atención. Si necesitas más ayuda, estamos aquí. 😊\n\n" .
