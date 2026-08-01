@@ -20,9 +20,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $raw  = file_get_contents('php://input');
 $data = json_decode($raw, true);
 
-$phone   = preg_replace('/[^0-9]/', '', trim($data['phone']   ?? ''));
-$message = trim($data['message'] ?? '');
-$name    = trim($data['name']    ?? '');
+$phoneRaw = trim($data['phone'] ?? '');
+$message  = trim($data['message'] ?? '');
+$name     = trim($data['name']    ?? '');
+
+// Acepta JID completo (ej: 238336493011006@lid) o número normal
+if (str_contains($phoneRaw, '@')) {
+    $phone = $phoneRaw; // JID: usar tal cual
+} else {
+    $phone = preg_replace('/[^0-9]/', '', $phoneRaw);
+}
 
 if ($phone === '') {
     http_response_code(400);
@@ -30,9 +37,9 @@ if ($phone === '') {
     exit;
 }
 
-if (strlen($phone) < 7 || strlen($phone) > 15) {
+if (!str_contains($phone, '@') && (strlen($phone) < 7 || strlen($phone) > 15)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Número de teléfono inválido (incluye el código de país, ej: 573001234567).']);
+    echo json_encode(['success' => false, 'error' => 'Número inválido (incluye el código de país, ej: 573001234567, o usa el JID completo).']);
     exit;
 }
 

@@ -678,7 +678,8 @@ const App = (() => {
   }
 
   async function sendNewConversation() {
-    const phone = document.getElementById('new-conv-phone')?.value.trim().replace(/\D/g, '');
+    const phoneRaw = document.getElementById('new-conv-phone')?.value.trim();
+    const phone    = phoneRaw.includes('@') ? phoneRaw : phoneRaw.replace(/\D/g, '');
     const name  = document.getElementById('new-conv-name')?.value.trim();
     const msg   = document.getElementById('new-conv-message')?.value.trim();
     const err   = document.getElementById('new-conv-error');
@@ -688,7 +689,7 @@ const App = (() => {
       if (err) { err.querySelector('span').textContent = text; err.classList.remove('hidden'); }
     };
 
-    if (!phone || phone.length < 7) return showErr('Ingresa un número válido con código de país.');
+    if (!phone || (!phone.includes('@') && phone.length < 7)) return showErr('Ingresa un número válido con código de país, o el JID completo (ej: 123456@lid).');
     if (!msg)                        return showErr('El mensaje no puede estar vacío.');
     if (err) err.classList.add('hidden');
 
