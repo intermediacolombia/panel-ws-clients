@@ -503,14 +503,18 @@ function panelDevolvioAlBot(string $phone): bool
     }
 }
 
-function panelEstaAtendiendo(string $phone): bool
+function panelEstaAtendiendo(string $phone, string $jid = ''): bool
 {
     try {
-        $convKey = GYM_CLIENT_ID . '_' . $phone;
-        $stmt    = panelDb()->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
-        $stmt->execute([$convKey]);
+        // Buscar por conv_key del número Y del jid completo (cubre contactos @lid)
+        $candidates = array_unique(array_filter([
+            GYM_CLIENT_ID . '_' . $phone,
+            $jid ? GYM_CLIENT_ID . '_' . $jid : '',
+        ]));
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
+        $stmt = panelDb()->prepare("SELECT status FROM conversations WHERE conv_key IN ($placeholders) ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute($candidates);
         $row = $stmt->fetch();
-        // 'pending' = esperando asesor, 'attending' = asesor activo — ambos bloquean el bot
         return $row && in_array($row['status'], ['attending', 'pending']);
     } catch (PDOException $e) {
         wlog("panelEstaAtendiendo DB error: " . $e->getMessage());
@@ -957,7 +961,7 @@ if ($esMultimedia || empty($mensaje)) {
     }
 
     // Sin asesor en bot_estados: verificar si el panel tiene la conv activa
-    if (panelEstaAtendiendo($from)) {
+    if (panelEstaAtendiendo($from, $telefono)) {
         guardarEstado($sesKey, 'asesor');
         notifyPanel($phoneForPanel, $nombre, $mensaje ?: '[multimedia]', $messageType, 'Atención al Cliente',
                     $mediaUrl, '', $mediaBase64, $mimetypeRaw, $mediaFilename);
@@ -1006,7 +1010,7 @@ wlog("[$clientId] Estado: " . ($estado ?? 'NINGUNO') . ($estadoPrevio && !$estad
 
 // Sincronizar con el panel: si bot_estados no tiene 'asesor' pero el panel
 // tiene la conv como pending/attending, forzar estado asesor en el bot.
-if ($estado !== 'asesor' && panelEstaAtendiendo($from)) {
+if ($estado !== 'asesor' && panelEstaAtendiendo($from, $telefono)) {
     wlog("[$clientId] Panel tiene conv activa sin estado asesor — sincronizando");
     guardarEstado($sesKey, 'asesor');
     $sesData = ['estado' => 'asesor', 'data' => []];
@@ -1181,7 +1185,7 @@ if ($estado === 'asesor') {
 // ── H. Sin estado (primera vez o expirado) ───────────────────
 } else {
     wlog("[$clientId] Sin estado — menú inicial");
-    if ($estadoPrevio === 'asesor' && !panelEstaAtendiendo($from)) {
+    if ($estadoPrevio === 'asesor' && !panelEstaAtendiendo($from, $telefono)) {
         // Estado asesor expiró Y el panel no tiene la conv activa: retomar bot
         wlog("[$clientId] Sesión asesor expirada — retomando bot");
         panelSetBot($from);
