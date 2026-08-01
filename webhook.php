@@ -816,7 +816,7 @@ if ($esMultimedia || empty($mensaje)) {
             // Dejar que el flujo continúe abajo para procesar el mensaje
         } else {
             // Registrar el archivo en el panel para que el agente lo vea
-            notifyPanel($from, $nombre, $mensaje, $messageType, $clientId, '',
+            notifyPanel($destino, $nombre, $mensaje, $messageType, $clientId, '',
                         $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
             wlog("[$clientId] Multimedia con asesor activo — registrado en panel");
             http_response_code(200); exit('OK');
@@ -832,7 +832,7 @@ if ($esMultimedia || empty($mensaje)) {
         wlog("[$clientId] Comprobante recibido ($messageType) — horario=" . ($abierto ? 'abierto' : 'cerrado'));
 
         // Registrar el comprobante en el panel (siempre, sin importar horario)
-        notifyPanel($from, $nombre, $mensaje ?: '[comprobante]', $messageType, $clientId, 'Medios de Pago',
+        notifyPanel($destino, $nombre, $mensaje ?: '[comprobante]', $messageType, $clientId, 'Medios de Pago',
                     $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
 
         // Notificar al asesor por WA (siempre — los pagos son 24/7)
@@ -877,7 +877,7 @@ if ($esMultimedia || empty($mensaje)) {
     // (cubre el caso donde bot_estados expiró pero el agente sigue activo en el panel)
     if (panelEstaAtendiendo($from)) {
         guardarEstado($sesKey, 'asesor');
-        notifyPanel($from, $nombre, $mensaje ?: '[multimedia]', $messageType, $clientId, '',
+        notifyPanel($destino, $nombre, $mensaje ?: '[multimedia]', $messageType, $clientId, '',
                     $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
         wlog("[$clientId] Multimedia — panel 'attending' detectado, sincronizado y registrado en panel");
         http_response_code(200); exit('OK');
@@ -946,7 +946,7 @@ if ($estado === 'asesor') {
             $respuesta = resetMenu($sesKey, $nombre);
         } else {
             // Registrar SIEMPRE el mensaje (incluye saludos, palabras de activación, etc.)
-            notifyPanel($from, $nombre, $mensaje, $messageType, $clientId, '');
+            notifyPanel($destino, $nombre, $mensaje, $messageType, $clientId, '');
             wlog("[$clientId] Asesor activo — mensaje registrado en panel: \"$mensaje\"");
             http_response_code(200); exit('OK');
         }
@@ -1013,7 +1013,7 @@ if ($estado === 'asesor') {
             "Escribe *Menú* si deseas volver al menú principal.";
         guardarEstado($sesKey, 'asesor', ['area' => 'Ventas']);
         wlog("[$clientId] KEYWORD ASESOR: $nombre ($from)");
-        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas');
+        notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Ventas');
         notificarAsesor($nombre, $from, "Solicitud directa — palabra clave \"asesor\"", 'ventas');
     } else {
         $respuesta = mensajeAusenciaVentas();
@@ -1032,7 +1032,7 @@ if ($estado === 'asesor') {
             "Escribe *Menú* si deseas volver al menú principal.";
         guardarEstado($sesKey, 'asesor', ['area' => 'Soporte']);
         wlog("[$clientId] KEYWORD SOPORTE: $nombre ($from)");
-        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte Técnico');
+        notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Soporte Técnico');
         notificarAsesor($nombre, $from, "Solicitud directa — palabra clave \"soporte\"", 'soporte');
     } else {
         $respuesta = mensajeAusenciaSoporte();
@@ -1097,7 +1097,7 @@ if ($estado === 'asesor') {
                 "Escribe *Menú* si deseas volver al menú principal.";
             guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Ventas - ' . $servicio]);
             wlog("[$clientId] LEAD VENTAS: $nombre ($from) — $servicio");
-            notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas - ' . $servicio);
+            notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Ventas - ' . $servicio);
             notificarAsesor($nombre, $from, "Ventas — {$servicio}", 'ventas');
         } else {
             $respuesta = mensajeAusenciaVentas();
@@ -1130,7 +1130,7 @@ if ($estado === 'asesor') {
                 "Escribe *Menú* si deseas volver al menú principal.";
             guardarEstado($sesKey, 'asesor', ['servicio' => $servicio, 'area' => 'Soporte - ' . $servicio]);
             wlog("[$clientId] TICKET SOPORTE: $nombre ($from) — $servicio");
-            notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Soporte - ' . $servicio);
+            notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Soporte - ' . $servicio);
             notificarAsesor($nombre, $from, "Soporte Técnico — {$servicio}", 'soporte');
         } else {
             $respuesta = mensajeAusenciaSoporte($servicio);
@@ -1155,7 +1155,7 @@ if ($estado === 'asesor') {
             "👤 http://clientes.intermediahost.co\n\n" .
             "Escribe *Menú* si deseas volver al menú principal.";
         guardarEstado($sesKey, 'asesor', ['area' => 'Ventas']);
-        notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Ventas');
+        notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Ventas');
         notificarAsesor($nombre, $from, "Solicita asesor desde área de pagos", 'ventas');
     } elseif (preg_match('/^\s*asesor\s*$/i', $mensajeLower) && !empresaAbierta()) {
         // Escribe "asesor" pero fuera de horario
@@ -1176,7 +1176,7 @@ if ($estado === 'asesor') {
 // ── H. Otros — esperando mensaje libre ───────────────────────
 } elseif ($estado === 'otros_solicitud') {
     // Registrar siempre la consulta en el panel (queda como historial)
-    notifyPanel($from, $nombre, $mensaje, 'text', $clientId, 'Otros');
+    notifyPanel($destino, $nombre, $mensaje, 'text', $clientId, 'Otros');
     wlog("[$clientId] OTROS: $nombre ($from) — $mensaje");
 
     if (empresaAbierta()) {
