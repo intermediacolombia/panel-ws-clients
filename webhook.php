@@ -488,15 +488,17 @@ function panelSetResolved($phone)
 //  para mayor compatibilidad.
 //  Retorna: 'attending', 'pending', 'bot', 'resolved', o null
 // ════════════════════════════════════════════════════════════════
-function panelConvStatus($phone)
+function panelConvStatus($phone, $jid = '')
 {
     try {
         $pdo  = DB::get();
-        // Buscar por número de teléfono directamente, sin depender del conv_key
+        // Buscar por phone o por jid completo (cubre contactos @lid)
+        $candidates = array_unique(array_filter([$phone, $jid]));
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
         $stmt = $pdo->prepare(
-            'SELECT status FROM conversations WHERE phone = ? ORDER BY updated_at DESC LIMIT 1'
+            "SELECT status FROM conversations WHERE phone IN ($placeholders) ORDER BY updated_at DESC LIMIT 1"
         );
-        $stmt->execute([$phone]);
+        $stmt->execute($candidates);
         $row = $stmt->fetch();
         return $row ? $row['status'] : null;
     } catch (PDOException $e) {
@@ -505,17 +507,15 @@ function panelConvStatus($phone)
     }
 }
 
-function panelDevolvioBot($phone, $clientId)
+function panelDevolvioBot($phone, $clientId, $jid = '')
 {
-    $status = panelConvStatus($phone);
-    // El panel devolvió control al bot si está en 'bot' o ya fue resuelto
+    $status = panelConvStatus($phone, $jid);
     return $status === 'bot' || $status === 'resolved' || $status === null;
 }
 
-function panelEstaAtendiendo($phone)
+function panelEstaAtendiendo($phone, $jid = '')
 {
-    $status = panelConvStatus($phone);
-    // 'pending' = esperando asesor, 'attending' = asesor activo — ambos bloquean el bot
+    $status = panelConvStatus($phone, $jid);
     return $status === 'attending' || $status === 'pending';
 }
 
@@ -810,7 +810,7 @@ if ($esMultimedia || empty($mensaje)) {
 
     // Con asesor activo: verificar si el panel devolvió control al bot
     if ($estadoTemp === 'asesor') {
-        if (panelDevolvioBot($from, $clientId)) {
+        if (panelDevolvioBot($from, $clientId, $destino)) {
             wlog("[$clientId] Panel devolvió control al bot (multimedia) — limpiando estado asesor");
             guardarEstado($sesKey, null);
             // Dejar que el flujo continúe abajo para procesar el mensaje
@@ -875,7 +875,7 @@ if ($esMultimedia || empty($mensaje)) {
 
     // Sin asesor en bot_estados: verificar si el panel tiene la conv como 'attending'
     // (cubre el caso donde bot_estados expiró pero el agente sigue activo en el panel)
-    if (panelEstaAtendiendo($from)) {
+    if (panelEstaAtendiendo($from, $destino)) {
         guardarEstado($sesKey, 'asesor');
         notifyPanel($destino, $nombre, $mensaje ?: '[multimedia]', $messageType, $clientId, '',
                     $mediaUrl, $caption, $mediaBase64, $mimetypeRaw, $mediaFilename);
@@ -918,7 +918,7 @@ $estado  = $sesData['estado'] ?? null;
 // Si el panel tiene la conversación como 'attending' pero bot_estados
 // no tiene estado 'asesor' (ej: conversación iniciada desde el panel),
 // forzar estado 'asesor' y guardarlo para futuras peticiones.
-if ($estado !== 'asesor' && panelEstaAtendiendo($from)) {
+if ($estado !== 'asesor' && panelEstaAtendiendo($from, $destino)) {
     wlog("[$clientId] Panel tiene conv 'attending' sin estado asesor — sincronizando");
     guardarEstado($sesKey, 'asesor');
     $sesData = ['estado' => 'asesor'];
@@ -939,7 +939,7 @@ if ($estado === 'asesor') {
         $respuesta = resetMenu($sesKey, $nombre);
     } else {
         // Verificar si el panel ya devolvió el control al bot
-        if (panelDevolvioBot($from, $clientId)) {
+        if (panelDevolvioBot($from, $clientId, $destino)) {
             wlog("[$clientId] Panel devolvió control al bot — retomando bot");
             guardarEstado($sesKey, null);
             // No notificar al panel: la conv ya está en status=bot, no reabrir ni alertar agentes
