@@ -16,10 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $phone = trim($_GET['phone'] ?? '');
-if (!preg_match('/^\d{7,15}$/', $phone)) {
+// Acepta dígitos puros o JID con @ (ej: 141566433853552@lid, 123@s.whatsapp.net)
+if (!preg_match('/^\d{7,15}$/', $phone) && !preg_match('/^\d{7,20}@[\w.]+$/', $phone)) {
     http_response_code(400);
     exit;
 }
+// Clave de caché segura para el sistema de archivos (reemplaza @ y . por _)
+$cacheKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $phone);
 
 define('PP_CACHE_DIR',    UPLOAD_DIR . 'pp_cache/');
 define('PP_TTL_HIT',      86400);   // 24 h — tiene foto
@@ -39,8 +42,8 @@ if (!is_dir(PP_CACHE_DIR)) {
     mkdir(PP_CACHE_DIR, 0755, true);
 }
 
-$imgFile  = PP_CACHE_DIR . $phone . '.jpg';
-$noneFile = PP_CACHE_DIR . $phone . '.none';
+$imgFile  = PP_CACHE_DIR . $cacheKey . '.jpg';
+$noneFile = PP_CACHE_DIR . $cacheKey . '.none';
 
 // ── Caché negativo (no tiene foto) ──────────────────────────
 if (file_exists($noneFile) && (time() - filemtime($noneFile)) < PP_TTL_MISS) {
