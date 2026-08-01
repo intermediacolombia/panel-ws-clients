@@ -485,7 +485,7 @@ function panelSetBot(string $phone, string $jid = ''): void
         panelDb()->prepare(
             "UPDATE conversations
              SET status = 'bot', agent_id = NULL, unread_count = 0, updated_at = NOW()
-             WHERE conv_key IN ($placeholders) AND status IN ('pending','attending')"
+             WHERE conv_key IN ($placeholders) AND status = 'pending'"
         )->execute($candidates);
         wlog("panelSetBot: $convKey → bot");
     } catch (PDOException $e) {

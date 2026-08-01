@@ -455,7 +455,7 @@ function panelSetBot($phone, $clientId, $jid = '')
         $pdo->prepare(
             "UPDATE conversations
              SET status = 'bot', updated_at = NOW()
-             WHERE phone IN ($placeholders) AND status IN ('attending','pending')"
+             WHERE phone IN ($placeholders) AND status = 'pending'"
         )->execute($candidates);
         wlog("panelSetBot: $phone/$jid → bot");
     } catch (PDOException $e) {
