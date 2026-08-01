@@ -119,15 +119,26 @@
     <div class="modal-header">
       <span class="modal-title">
         <i class="fas fa-edit" style="color:var(--verde-mid);margin-right:6px"></i>
-        Editar nombre del contacto
+        Editar contacto
       </span>
       <button class="modal-close" onclick="Chat.closeRenameModal()">&times;</button>
     </div>
-    <div style="padding:4px 0 16px">
-      <input type="text" id="rename-input" maxlength="100"
-             placeholder="Nombre del contacto"
-             style="width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:var(--radius-sm);font-size:.95rem;box-sizing:border-box;background:var(--bg-input,#fff);color:var(--texto)"
-             onkeydown="if(event.key==='Enter')Chat.doRename()">
+    <div style="padding:4px 0 16px;display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:.82rem;color:var(--texto-suave);display:block;margin-bottom:4px">Nombre</label>
+        <input type="text" id="rename-input" maxlength="100"
+               placeholder="Nombre del contacto"
+               style="width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:var(--radius-sm);font-size:.95rem;box-sizing:border-box;background:var(--bg-input,#fff);color:var(--texto)"
+               onkeydown="if(event.key==='Enter')Chat.doRename()">
+      </div>
+      <div>
+        <label style="font-size:.82rem;color:var(--texto-suave);display:block;margin-bottom:4px">Teléfono o usuario interno</label>
+        <input type="text" id="rename-phone-input" maxlength="60"
+               placeholder="573001234567 o 238336493011006@lid"
+               style="width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:var(--radius-sm);font-size:.95rem;box-sizing:border-box;background:var(--bg-input,#fff);color:var(--texto)"
+               onkeydown="if(event.key==='Enter')Chat.doRename()">
+        <small style="color:var(--texto-suave);margin-top:4px;display:block">Número con código de país o JID (ej: 238336493011006@lid)</small>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="Chat.closeRenameModal()">Cancelar</button>

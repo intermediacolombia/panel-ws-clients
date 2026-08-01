@@ -19,6 +19,7 @@ $data = json_decode($raw, true);
 
 $convId      = (int)($data['conversationId'] ?? 0);
 $contactName = trim($data['contactName'] ?? '');
+$phoneRaw    = trim($data['phone'] ?? '');
 
 if ($convId <= 0) {
     http_response_code(400);
@@ -30,6 +31,13 @@ if ($contactName === '' || mb_strlen($contactName) > 100) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Nombre inválido (1-100 caracteres).']);
     exit;
+}
+
+// Normalizar teléfono: JID se usa tal cual, número se limpia
+if ($phoneRaw !== '') {
+    $phone = str_contains($phoneRaw, '@') ? $phoneRaw : preg_replace('/[^0-9+]/', '', $phoneRaw);
+} else {
+    $phone = null;
 }
 
 try {
@@ -51,9 +59,16 @@ try {
         exit;
     }
 
-    $pdo->prepare(
-        'UPDATE conversations SET contact_name = ?, updated_at = NOW() WHERE id = ?'
-    )->execute([$contactName, $convId]);
+    if ($phone !== null && $phone !== '') {
+        $newConvKey = $conv['client_id'] . '_' . $phone;
+        $pdo->prepare(
+            'UPDATE conversations SET contact_name = ?, phone = ?, conv_key = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([$contactName, $phone, $newConvKey, $convId]);
+    } else {
+        $pdo->prepare(
+            'UPDATE conversations SET contact_name = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([$contactName, $convId]);
+    }
 
     echo json_encode(['success' => true]);
 

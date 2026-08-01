@@ -733,8 +733,10 @@ const Chat = (() => {
     if (!_conv) return;
     const modal = document.getElementById('modal-rename');
     const input = document.getElementById('rename-input');
+    const phoneInput = document.getElementById('rename-phone-input');
     if (!modal || !input) return;
     input.value = _conv.contact_name || '';
+    if (phoneInput) phoneInput.value = _conv.phone || '';
     modal.classList.add('open');
     setTimeout(() => { input.focus(); input.select(); }, 80);
   }
@@ -746,8 +748,10 @@ const Chat = (() => {
 
   async function doRename() {
     if (!_conv) return;
-    const input = document.getElementById('rename-input');
+    const input      = document.getElementById('rename-input');
+    const phoneInput = document.getElementById('rename-phone-input');
     const name  = (input?.value || '').trim();
+    const phone = (phoneInput?.value || '').trim();
     if (!name) { input?.focus(); return; }
 
     try {
@@ -755,20 +759,19 @@ const Chat = (() => {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body:        JSON.stringify({ conversationId: _conv.id, contactName: name }),
+        body:        JSON.stringify({ conversationId: _conv.id, contactName: name, phone }),
       });
       const json = await res.json();
 
       if (json.success) {
         _conv.contact_name = name;
-        // Actualizar header
+        if (phone) _conv.phone = phone;
         const nameEl = document.getElementById('chat-contact-name');
         if (nameEl) nameEl.textContent = name;
-        // Actualizar ítem en la lista
         const convItem = document.querySelector(`.conv-item[data-conv-id="${_conv.id}"] .conv-name`);
         if (convItem) convItem.textContent = name;
         closeRenameModal();
-        Notify.showToast('Nombre actualizado.', 'success');
+        Notify.showToast('Contacto actualizado.', 'success');
       } else {
         Notify.showToast(json.error || 'Error al guardar.', 'error');
       }
