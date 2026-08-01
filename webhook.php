@@ -933,11 +933,11 @@ $respuesta = null;
 
 // ── A. Estado ASESOR activo ───────────────────────────────────
 if ($estado === 'asesor') {
-    if (esSalidaAsesor($mensaje)) {
-        // Usuario escribe "menú" → sale de modo asesor voluntariamente
-        wlog("[$clientId] Salida de asesor por MENÚ");
+    if (esSalidaAsesor($mensaje) && panelConvStatus($from, $destino) === 'pending') {
+        // Solo sale al bot si no hay agente asignado (pending)
+        wlog("[$clientId] Salida de asesor por MENÚ (sin agente)");
         guardarEstado($sesKey, null);
-        panelSetBot($from, $clientId, $destino);   // actualizar panel a modo bot
+        panelSetBot($from, $clientId, $destino);
         $respuesta = resetMenu($sesKey, $nombre);
     } else {
         // Verificar si el panel ya devolvió el control al bot

@@ -1034,7 +1034,18 @@ if ($estado === 'asesor') {
         $respuesta = resetMenu($sesKey, $nombre);
 
     } elseif (esSalidaAsesor($mensaje)) {
-        wlog("[$clientId] Salida de asesor por MENÚ");
+        // Solo sale al bot si no hay agente asignado (pending). Con agente (attending), va al panel.
+        $candidates = array_unique(array_filter([GYM_CLIENT_ID . '_' . $from, GYM_CLIENT_ID . '_' . $telefono]));
+        $ph = implode(',', array_fill(0, count($candidates), '?'));
+        $rowStatus = panelDb()->prepare("SELECT status FROM conversations WHERE conv_key IN ($ph) ORDER BY updated_at DESC LIMIT 1");
+        $rowStatus->execute($candidates);
+        $convStatus = $rowStatus->fetchColumn();
+        if ($convStatus === 'attending') {
+            notifyPanel($phoneForPanel, $nombre, $mensaje, $messageType, 'Atención al Cliente');
+            wlog("[$clientId] MENÚ con agente activo — reenviado al panel sin salir");
+            http_response_code(200); exit('OK');
+        }
+        wlog("[$clientId] Salida de asesor por MENÚ (sin agente)");
         panelSetBot($from, $telefono);
         $respuesta = resetMenu($sesKey, $nombre);
 
