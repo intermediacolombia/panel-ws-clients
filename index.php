@@ -68,6 +68,14 @@ window.PANEL_CONFIG = {
         <span class="sidebar-tooltip">Conversaciones</span>
       </div>
 
+      <!-- Contactos Bot (todos los agentes) -->
+      <div class="sidebar-item" data-section="contacts"
+           onclick="App.navigate('contacts')">
+        <i class="fas fa-address-book"></i>
+        <span>Contactos</span>
+        <span class="sidebar-tooltip">Contactos Bot</span>
+      </div>
+
       <?php if ($isSupervisor): ?>
       <!-- Estadísticas -->
       <div class="sidebar-item" data-section="stats"

@@ -439,6 +439,11 @@ function notifyPanel($phone, $name, $message, $messageType, $clientId, $area,
     } else {
         wlog("notifyPanel HTTP=$code area=$area phone=$phone resp=" . substr($response, 0, 100));
     }
+
+    // Si se asigna a un área, eliminar de bot_contacts
+    if ($area !== '') {
+        botContactDelete($phone, $clientId);
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -617,6 +622,37 @@ function resetMenu($key, $nombre)
     guardarEstado($key, 'menu_principal', []);
     wlog("RESET menu_principal: $key");
     return menuPrincipal($nombre);
+}
+
+/**
+ * Registra un contacto bot (INSERT IGNORE) cuando interactúa por primera vez.
+ */
+function botContactInsert(string $phone, string $name, string $clientId): void
+{
+    try {
+        $pdo  = DB::get();
+        $now  = date('Y-m-d H:i:s');
+        $pdo->prepare(
+            'INSERT INTO bot_contacts (phone, name, client_id, first_seen, updated_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE name = IF(? <> \'\', ?, name), updated_at = ?'
+        )->execute([$phone, $name, $clientId, $now, $now, $name, $name, $now]);
+    } catch (PDOException $e) {
+        wlog("botContactInsert error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Elimina un contacto bot cuando pasa a ser atendido por un asesor.
+ */
+function botContactDelete(string $phone, string $clientId): void
+{
+    try {
+        DB::get()->prepare('DELETE FROM bot_contacts WHERE phone = ? AND client_id = ?')
+                 ->execute([$phone, $clientId]);
+    } catch (PDOException $e) {
+        wlog("botContactDelete error: " . $e->getMessage());
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1215,6 +1251,8 @@ if ($estado === 'asesor') {
             "El bot retomó la atención. Si necesitas más ayuda, estamos aquí. 😊\n\n" .
             resetMenu($sesKey, $nombre);
     } else {
+        // Primera interacción: registrar en bot_contacts
+        botContactInsert($destino, $nombre, $clientId);
         $respuesta = resetMenu($sesKey, $nombre);
     }
 }

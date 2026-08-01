@@ -471,6 +471,42 @@ function notifyPanel(string $phone, string $name, string $message, string $messa
     curl_close($ch);
 
     wlog("notifyPanel HTTP=$code area=$area phone=$phone" . ($err ? " err=$err" : '') . ' resp=' . substr($response ?? '', 0, 80));
+
+    // Si se asigna a un área, eliminar de bot_contacts
+    if ($area !== '') {
+        botContactDelete($phone);
+    }
+}
+
+/**
+ * Registra un contacto bot (INSERT IGNORE) cuando interactúa por primera vez.
+ */
+function botContactInsert(string $phone, string $name): void
+{
+    try {
+        $pdo = panelDb();
+        $now = date('Y-m-d H:i:s');
+        $pdo->prepare(
+            'INSERT INTO bot_contacts (phone, name, client_id, first_seen, updated_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE name = IF(? <> \'\', ?, name), updated_at = ?'
+        )->execute([$phone, $name, GYM_CLIENT_ID, $now, $now, $name, $name, $now]);
+    } catch (PDOException $e) {
+        wlog("botContactInsert error: " . $e->getMessage());
+    }
+}
+
+/**
+ * Elimina un contacto bot cuando pasa a ser atendido por un asesor.
+ */
+function botContactDelete(string $phone): void
+{
+    try {
+        panelDb()->prepare('DELETE FROM bot_contacts WHERE phone = ? AND client_id = ?')
+                 ->execute([$phone, GYM_CLIENT_ID]);
+    } catch (PDOException $e) {
+        wlog("botContactDelete error: " . $e->getMessage());
+    }
 }
 
 function panelSetBot(string $phone, string $jid = ''): void
@@ -1210,6 +1246,8 @@ if ($estado === 'asesor') {
             "El bot retomó la atención. Si necesitas más ayuda, estamos aquí. 😊\n\n" .
             resetMenu($sesKey, $nombre);
     } else {
+        // Primera interacción: registrar en bot_contacts
+        botContactInsert($telefono ?: $from, $nombre);
         $respuesta = resetMenu($sesKey, $nombre);
     }
 }
