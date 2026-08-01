@@ -108,7 +108,8 @@ window.BotContacts = (() => {
            +   '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">'
            +     '<span style="font-size:.72rem;color:var(--texto-suave);white-space:nowrap">' + date + '</span>'
            +     '<button class="btn-primary" style="font-size:.75rem;padding:4px 12px;border-radius:20px;white-space:nowrap"'
-           +       ' onclick="BotContacts.startConv(' + JSON.stringify(c.phone) + ',' + JSON.stringify(c.name || '') + ')">'
+           +       ' data-phone="' + _esc(c.phone) + '" data-name="' + _esc(c.name || '') + '"'
+           +       ' onclick="BotContacts.startConv(this)">'
            +       '<i class="fas fa-comment-dots" style="margin-right:5px"></i>Iniciar'
            +     '</button>'
            +   '</div>'
@@ -116,7 +117,9 @@ window.BotContacts = (() => {
     }).join('');
   }
 
-  function startConv(phone, name) {
+  function startConv(btn) {
+    var phone = btn.dataset.phone;
+    var name  = btn.dataset.name;
     // Navegar a conversaciones y abrir el modal de nueva conversación prefilled
     if (typeof App !== 'undefined') {
       App.navigate('conversations');
