@@ -69,9 +69,9 @@
     </div>
 
     <div class="form-row">
-      <label>Número de teléfono *</label>
-      <input type="tel" id="new-conv-phone" placeholder="573001234567 (con código de país)" autocomplete="off">
-      <small style="color:var(--texto-suave);margin-top:4px;display:block">Sin +, sin espacios ni guiones. Ej: 573001234567</small>
+      <label>Teléfono o usuario interno *</label>
+      <input type="text" id="new-conv-phone" placeholder="573001234567 o 238336493011006@lid" autocomplete="off">
+      <small style="color:var(--texto-suave);margin-top:4px;display:block">Número con código de país (ej: 573001234567) o usuario interno (ej: 238336493011006@lid)</small>
     </div>
 
     <div class="form-row">
