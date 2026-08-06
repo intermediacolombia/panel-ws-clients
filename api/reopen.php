@@ -50,7 +50,9 @@ try {
         exit;
     }
 
-    $now = date('Y-m-d H:i:s');
+    $now      = date('Y-m-d H:i:s');
+    $clientId = defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default';
+    resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']);
 
     $pdo->prepare(
         'UPDATE conversations

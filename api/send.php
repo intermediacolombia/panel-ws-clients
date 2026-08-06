@@ -88,8 +88,9 @@ try {
         exit;
     }
 
-    $phone  = $conv['phone'];
-    $now    = date('Y-m-d H:i:s');
+    $clientId = defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default';
+    $phone    = resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']);
+    $now      = date('Y-m-d H:i:s');
     $savedFilePath = null;
 
     // ── Tipo texto ────────────────────────────────────────────────

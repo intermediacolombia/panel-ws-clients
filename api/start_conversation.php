@@ -71,12 +71,12 @@ try {
         exit;
     }
 
-    // Si es número puro, intentar resolver el LID para evitar que el bot se dispare al responder
+    // Resolver LID antes de enviar para que la respuesta del contacto no dispare el bot
     if (!str_contains($phone, '@')) {
         $lid = apiGetLid($phone);
         if ($lid !== null) {
             $phone   = $lid;
-            $convKey = $clientId . '_' . $phone;
+            $convKey = $clientId . '_' . $lid;
         }
     }
 

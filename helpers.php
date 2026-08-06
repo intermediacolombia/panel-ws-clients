@@ -267,6 +267,26 @@ function apiGetProfilePicture(string $phone): array
 }
 
 /**
+ * Si $phone es número puro (sin @), intenta resolverlo al LID de WhatsApp.
+ * Si lo encuentra, actualiza phone y conv_key en la BD y devuelve el LID.
+ * Devuelve el identificador final a usar (LID o el número original).
+ */
+function resolveAndUpdatePhone(PDO $pdo, int $convId, string $clientId, string $phone): string
+{
+    if (str_contains($phone, '@')) {
+        return $phone;
+    }
+    $lid = apiGetLid($phone);
+    if ($lid === null) {
+        return $phone;
+    }
+    $newKey = $clientId . '_' . $lid;
+    $pdo->prepare('UPDATE conversations SET phone = ?, conv_key = ? WHERE id = ?')
+        ->execute([$lid, $newKey, $convId]);
+    return $lid;
+}
+
+/**
  * Resuelve el LID de WhatsApp a partir de un número de teléfono.
  * Devuelve el LID si lo encuentra, o null si no.
  */
