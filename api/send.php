@@ -89,7 +89,12 @@ try {
     }
 
     $clientId = defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default';
-    $phone    = resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']);
+    try {
+        $phone = resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']);
+    } catch (\Throwable $e) {
+        error_log('[send] resolveAndUpdatePhone: ' . $e->getMessage());
+        $phone = $conv['phone'];
+    }
     $now      = date('Y-m-d H:i:s');
     $savedFilePath = null;
 
