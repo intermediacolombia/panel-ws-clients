@@ -52,7 +52,7 @@ try {
 
     $now      = date('Y-m-d H:i:s');
     $clientId = defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default';
-    resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']);
+    try { resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']); } catch (\Throwable $e) { error_log('[reopen] resolveAndUpdatePhone: ' . $e->getMessage()); }
 
     $pdo->prepare(
         'UPDATE conversations
@@ -62,7 +62,7 @@ try {
 
     echo json_encode(['success' => true, 'agentId' => $currentAgent['id']]);
 
-} catch (PDOException $e) {
+} catch (\Throwable $e) {
     error_log('[api/reopen] ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Error interno.']);
