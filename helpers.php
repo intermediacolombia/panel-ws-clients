@@ -305,8 +305,11 @@ function apiGetLid(string $phone): ?string
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
     $response = curl_exec($ch);
+    $curlErr  = curl_error($ch);
     curl_close($ch);
+    if ($curlErr) { error_log('[apiGetLid] curl error: ' . $curlErr); return null; }
     $decoded = json_decode($response, true);
+    error_log('[apiGetLid] phone=' . $phone . ' response=' . $response);
     return ($decoded['success'] && $decoded['found']) ? $decoded['lid'] : null;
 }
 
