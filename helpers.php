@@ -267,6 +267,30 @@ function apiGetProfilePicture(string $phone): array
 }
 
 /**
+ * Resuelve el LID de WhatsApp a partir de un número de teléfono.
+ * Devuelve el LID si lo encuentra, o null si no.
+ */
+function apiGetLid(string $phone): ?string
+{
+    $ch = curl_init(WA_API_URL . '/api/get-lid/');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_HTTPHEADER     => [
+            'Authorization: Bearer ' . WA_API_KEY,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_POSTFIELDS     => json_encode(['phone' => $phone]),
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $decoded = json_decode($response, true);
+    return ($decoded['success'] && $decoded['found']) ? $decoded['lid'] : null;
+}
+
+/**
  * Emite cabecera JSON y termina la ejecución.
  *
  * @param array $data
