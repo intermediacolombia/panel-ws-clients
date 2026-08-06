@@ -52,7 +52,8 @@ try {
 
     $now      = date('Y-m-d H:i:s');
     $clientId = defined('WA_CLIENT_ID') ? WA_CLIENT_ID : 'default';
-    try { resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']); } catch (\Throwable $e) { error_log('[reopen] resolveAndUpdatePhone: ' . $e->getMessage()); }
+    $phone    = $conv['phone'];
+    try { $phone = resolveAndUpdatePhone($pdo, $convId, $clientId, $conv['phone']); } catch (\Throwable $e) { error_log('[reopen] resolveAndUpdatePhone: ' . $e->getMessage()); }
 
     $pdo->prepare(
         'UPDATE conversations
@@ -60,7 +61,7 @@ try {
          WHERE id = ?'
     )->execute(['attending', $currentAgent['id'], $now, $now, $convId]);
 
-    echo json_encode(['success' => true, 'agentId' => $currentAgent['id']]);
+    echo json_encode(['success' => true, 'agentId' => $currentAgent['id'], 'phone' => $phone]);
 
 } catch (\Throwable $e) {
     error_log('[api/reopen] ' . $e->getMessage());

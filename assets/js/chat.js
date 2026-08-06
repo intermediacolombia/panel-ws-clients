@@ -718,6 +718,7 @@ const Chat = (() => {
       if (json.success) {
         _conv.status   = 'attending';
         _conv.agent_id = window.PANEL_CONFIG.agentId;
+        if (json.phone) _conv.phone = json.phone;
         _render();
         Notify.showToast('Conversación reactivada.', 'success');
       } else {
