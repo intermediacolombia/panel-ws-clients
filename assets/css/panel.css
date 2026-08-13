@@ -682,19 +682,32 @@ input, textarea { font-family: inherit; }
 }
 [data-theme="dark"] .msg-more-indicator span { background: rgba(255,255,255,0.08); }
 
-/* Separador de fecha */
-.date-separator {
-  text-align: center;
-  margin: 8px 0;
+/* Grupo de mensajes por día — bloque normal para que el sticky tenga límite */
+.msg-day-group {
+  display: block;
 }
 
-.date-separator span {
-  background: rgba(255,255,255,0.8);
+/* Cabecera sticky de fecha */
+.day-header {
+  position: sticky;
+  top: 6px;
+  z-index: 10;
+  text-align: center;
+  margin: 8px 0 4px;
+  pointer-events: none;
+  /* display:contents en el padre hace que esta cabecera sea un item flex directo */
+}
+
+.day-header span {
+  display: inline-block;
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--texto-suave);
-  font-size: 0.73rem;
-  padding: 3px 10px;
+  font-size: 0.72rem;
+  padding: 3px 11px;
   border-radius: 10px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
 }
 
 /* Burbuja de mensaje */
@@ -1932,6 +1945,7 @@ input, textarea { font-family: inherit; }
 [data-theme="dark"] .bubble-wrap.in  .bubble { background: #1c2333; }
 [data-theme="dark"] .bubble-wrap.out .bubble { background: #1a3a2a; }
 [data-theme="dark"] .date-separator span      { background: rgba(255,255,255,0.08); }
+[data-theme="dark"] .day-header span          { background: rgba(255,255,255,0.08); box-shadow: none; }
 
 /* Status badges */
 [data-theme="dark"] .status-badge.pending   { background: rgba(230,126,34,.15); }

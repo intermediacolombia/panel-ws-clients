@@ -94,26 +94,34 @@ const Chat = (() => {
         // Preservar posición de scroll: medir altura antes de insertar
         const prevHeight = container ? container.scrollHeight : 0;
 
-        // Renderizar y prepend al DOM
-        let lastDate = '';
+        // Agrupar mensajes más antiguos por fecha y prepend
         const frag = document.createDocumentFragment();
+        let currentDate = '';
+        let currentGroup = null;
 
         json.messages.forEach(msg => {
           const msgDate = msg.created_at ? msg.created_at.substring(0, 10) : '';
-          if (msgDate && msgDate !== lastDate) {
-            frag.appendChild(_buildDateSeparator(msg.created_at));
-            lastDate = msgDate;
+          if (msgDate !== currentDate) {
+            currentGroup = _buildDayGroup(msg.created_at);
+            frag.appendChild(currentGroup);
+            currentDate = msgDate;
           }
-          frag.appendChild(renderBubble(msg));
+          currentGroup.appendChild(renderBubble(msg));
         });
 
-        // Reconstruir separadores en el primer mensaje antiguo que ya existía
-        // (pueden quedar duplicados de fecha — se evita comparando con el primer mensaje cargado)
+        // Si el último grupo nuevo comparte fecha con el primer grupo existente, fusionar
+        const firstExisting = container ? container.querySelector('.msg-day-group') : null;
+        if (firstExisting && currentGroup && firstExisting.dataset.date === currentGroup.dataset.date) {
+          while (firstExisting.querySelector('.bubble-wrap')) {
+            currentGroup.appendChild(firstExisting.querySelector('.bubble-wrap'));
+          }
+          firstExisting.remove();
+        }
+
         if (container) {
           loader.remove();
-          // Insertar antes del primer bubble existente
-          const firstBubble = container.querySelector('.bubble-wrap');
-          if (firstBubble) container.insertBefore(frag, firstBubble);
+          const firstGroup = container.querySelector('.msg-day-group');
+          if (firstGroup) container.insertBefore(frag, firstGroup);
           else container.prepend(frag);
 
           // Restaurar scroll para que no salte
@@ -347,20 +355,24 @@ const Chat = (() => {
 
     // Indicador "hay mensajes anteriores" en el tope
     const moreInd = document.createElement('div');
-    moreInd.id           = 'msg-more-indicator';
-    moreInd.className    = 'msg-more-indicator';
+    moreInd.id            = 'msg-more-indicator';
+    moreInd.className     = 'msg-more-indicator';
     moreInd.style.display = _hasMore ? '' : 'none';
-    moreInd.innerHTML    = '<span>Subir para ver mensajes anteriores</span>';
+    moreInd.innerHTML     = '<span>Subir para ver mensajes anteriores</span>';
     container.appendChild(moreInd);
 
-    let lastDate = '';
+    // Agrupar por fecha y renderizar con cabecera sticky por grupo
+    let currentDate = '';
+    let currentGroup = null;
+
     messages.forEach(msg => {
       const msgDate = msg.created_at ? msg.created_at.substring(0, 10) : '';
-      if (msgDate && msgDate !== lastDate) {
-        container.appendChild(_buildDateSeparator(msg.created_at));
-        lastDate = msgDate;
+      if (msgDate !== currentDate) {
+        currentGroup = _buildDayGroup(msg.created_at);
+        container.appendChild(currentGroup);
+        currentDate = msgDate;
       }
-      container.appendChild(renderBubble(msg));
+      currentGroup.appendChild(renderBubble(msg));
     });
 
     scrollToBottom();
@@ -370,21 +382,22 @@ const Chat = (() => {
     const container = el.messages();
     if (!container) return;
 
-    // Evitar duplicados: si el mensaje ya existe, no agregar
+    // Evitar duplicados
     if (msg.id && _messages.some(m => m.id === msg.id)) return;
 
-    // Separador de fecha si cambia el día
     const msgDate = msg.created_at ? msg.created_at.substring(0, 10) : '';
-    const lastMsg = _messages[_messages.length - 1];
-    const lastDate = lastMsg ? (lastMsg.created_at || '').substring(0, 10) : '';
+    const lastGroup = container.querySelector('.msg-day-group:last-child');
+    const lastGroupDate = lastGroup ? lastGroup.dataset.date : '';
 
-    if (msgDate && msgDate !== lastDate) {
-      container.appendChild(_buildDateSeparator(msg.created_at));
+    if (msgDate !== lastGroupDate) {
+      const group = _buildDayGroup(msg.created_at);
+      group.appendChild(renderBubble(msg));
+      container.appendChild(group);
+    } else {
+      (lastGroup || container).appendChild(renderBubble(msg));
     }
 
     _messages.push(msg);
-    const bubble = renderBubble(msg);
-    container.appendChild(bubble);
     scrollToBottom();
   }
 
@@ -459,26 +472,43 @@ const Chat = (() => {
     return wrap;
   }
 
-  function _buildDateSeparator(datetime) {
-    const div = document.createElement('div');
-    div.className = 'date-separator';
-    div.innerHTML = '<span>' + _formatDate(datetime) + '</span>';
-    return div;
+  // Crea un contenedor de grupo de día con cabecera sticky (excepto hoy)
+  function _buildDayGroup(datetime) {
+    const group = document.createElement('div');
+    group.className = 'msg-day-group';
+    const dateStr = datetime ? datetime.substring(0, 10) : '';
+    if (dateStr) group.dataset.date = dateStr;
+
+    const label = _formatDate(datetime);
+    if (label) {
+      const header = document.createElement('div');
+      header.className = 'day-header';
+      const pill = document.createElement('span');
+      pill.textContent = label;
+      header.appendChild(pill);
+      group.appendChild(header);
+    }
+    return group;
   }
 
   function _formatDate(datetime) {
-    if (!datetime) return '';
+    if (!datetime) return null;
     const d   = new Date(datetime.replace(' ', 'T'));
     const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const toYMD = dt => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
 
-    const pad = n => String(n).padStart(2,'0');
-    const dStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    const nStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-    const yStr = (() => { const y = new Date(now); y.setDate(y.getDate()-1);
-      return `${y.getFullYear()}-${pad(y.getMonth()+1)}-${pad(y.getDate())}`; })();
+    const dStr = toYMD(d);
+    if (dStr === toYMD(now)) return null; // hoy: sin separador
 
-    if (dStr === nStr) return 'Hoy';
-    if (dStr === yStr) return 'Ayer';
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    if (dStr === toYMD(yesterday)) return 'Ayer';
+
+    const diffDays = (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) -
+                      Date.UTC(d.getFullYear(),   d.getMonth(),   d.getDate())) / 86400000;
+    if (diffDays < 7) {
+      return ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()];
+    }
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
   }
 
