@@ -433,6 +433,7 @@ const Chat = (() => {
           <div class="audio-thumb"></div>
         </div>
         <span class="audio-time">0:00</span>
+        <button class="audio-speed-btn" onclick="AudioPlayer.cycleSpeed('${_escAttr(apId)}')" title="Velocidad de reproducción">1x</button>
       </div>`;
       if (msg.caption) {
         innerHtml += `<div class="bubble-caption">${_linkify(msg.caption)}</div>`;
@@ -1247,6 +1248,21 @@ const AudioPlayer = (() => {
       : _fmt(pos);
   }
 
+  const _speeds = [1, 1.5, 2];
+
+  function cycleSpeed(id) {
+    const inst = _get(id);
+    const el   = document.getElementById(id);
+    if (!inst || !el) return;
+
+    const cur  = inst.audio.playbackRate || 1;
+    const next = _speeds[(_speeds.indexOf(cur) + 1) % _speeds.length];
+    inst.audio.playbackRate = next;
+
+    const btn = el.querySelector('.audio-speed-btn');
+    if (btn) btn.textContent = next === 1 ? '1x' : next + 'x';
+  }
+
   function _setPlaying(id, playing) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1260,5 +1276,5 @@ const AudioPlayer = (() => {
     return `${m}:${s}`;
   }
 
-  return { toggle, seek };
+  return { toggle, seek, cycleSpeed };
 })();
