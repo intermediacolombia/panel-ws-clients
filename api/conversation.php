@@ -56,7 +56,7 @@ try {
 
     $afterId  = (int)($_GET['after_id']  ?? 0);
     $beforeId = (int)($_GET['before_id'] ?? 0);
-    $msgLimit = max(1, min(200, (int)($_GET['msg_limit'] ?? 50)));
+    $msgLimit = max(1, min(200, (int)($_GET['msg_limit'] ?? 50))); // solo para before_id
 
     // ── Polling: solo mensajes nuevos ────────────────────────────
     if ($afterId > 0) {
@@ -126,16 +126,13 @@ try {
     $conv['agent_id']      = $conv['agent_id'] !== null ? (int)$conv['agent_id'] : null;
 
     $msgStmt = $pdo->prepare(
-        'SELECT * FROM (
-            SELECT m.*, a.name AS agent_name
-            FROM messages m
-            LEFT JOIN agents a ON a.id = m.agent_id
-            WHERE m.conversation_id = ?
-            ORDER BY m.created_at DESC
-            LIMIT ?
-         ) sub ORDER BY created_at ASC'
+        'SELECT m.*, a.name AS agent_name
+         FROM messages m
+         LEFT JOIN agents a ON a.id = m.agent_id
+         WHERE m.conversation_id = ?
+         ORDER BY m.created_at ASC'
     );
-    $msgStmt->execute([$convId, $msgLimit]);
+    $msgStmt->execute([$convId]);
     $messages = $msgStmt->fetchAll();
 
     foreach ($messages as &$msg) {
@@ -161,7 +158,7 @@ try {
         'success'       => true,
         'conversation'  => $conv,
         'messages'      => $messages,
-        'has_more'      => count($messages) === $msgLimit,
+        'has_more'      => false,
         'previousConvs' => $previousConvs,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

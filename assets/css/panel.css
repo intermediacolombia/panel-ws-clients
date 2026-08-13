@@ -2411,3 +2411,29 @@ input, textarea { font-family: inherit; }
   background: linear-gradient(135deg, #1a3d20, #1f4a22);
   border-color: #28a745;
 }
+
+
+/* ── Búsqueda en mensajes ─────────────────────────────────── */
+.search-section-label {
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--texto-suave);
+  padding: 8px 14px 4px;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Resaltar mensaje destino (al navegar desde búsqueda) */
+@keyframes msg-flash {
+  0%   { background: rgba(37,211,102,.35); }
+  70%  { background: rgba(37,211,102,.15); }
+  100% { background: transparent; }
+}
+.bubble-wrap.msg-highlight .bubble {
+  animation: msg-flash 2.5s ease forwards;
+  border-radius: var(--radius-sm, 8px);
+}

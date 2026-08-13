@@ -33,7 +33,7 @@ const Chat = (() => {
   };
 
   // ── Cargar conversación ────────────────────────────────────
-  async function load(convId) {
+  async function load(convId, targetMsgId = null) {
     _hasMore     = false;
     _loadingMore = false;
     try {
@@ -52,9 +52,18 @@ const Chat = (() => {
       _render();
       _renderInfo(json.conversation, json.previousConvs || []);
       _initScrollLoader();
+      if (targetMsgId) scrollToMessage(targetMsgId);
     } catch (e) {
       Notify.showToast('Error de red al cargar chat.', 'error');
     }
+  }
+
+  function scrollToMessage(msgId) {
+    const target = document.querySelector('[data-msg-id="' + msgId + '"]');
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('msg-highlight');
+    setTimeout(() => target.classList.remove('msg-highlight'), 2500);
   }
 
   // ── Cargar mensajes más antiguos (scroll hacia arriba) ─────
@@ -1096,6 +1105,7 @@ const Chat = (() => {
 
   return {
     load,
+    scrollToMessage,
     renderMessages,
     appendMessage,
     renderBubble,

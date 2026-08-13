@@ -59,11 +59,12 @@ try {
         c.last_message_at AS last_message_time,
         d.name          AS dept_name,
         d.color         AS dept_color,
+        m.id            AS match_message_id,
         m.content       AS match_text,
         m.created_at    AS match_time,
         m.direction     AS match_direction
       FROM (
-        SELECT conversation_id, content, created_at, direction,
+        SELECT id, conversation_id, content, created_at, direction,
                ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at DESC) AS rn
         FROM messages
         WHERE content LIKE ?
@@ -82,9 +83,10 @@ try {
 
     // ── Recortar match_text centrado en el término buscado ────────
     foreach ($rows as &$row) {
-        $row['conversation_id'] = (int)$row['conversation_id'];
-        $row['agent_id']        = $row['agent_id'] !== null ? (int)$row['agent_id'] : null;
-        $row['unread_count']    = (int)$row['unread_count'];
+        $row['conversation_id']  = (int)$row['conversation_id'];
+        $row['match_message_id'] = (int)$row['match_message_id'];
+        $row['agent_id']         = $row['agent_id'] !== null ? (int)$row['agent_id'] : null;
+        $row['unread_count']     = (int)$row['unread_count'];
         $row['match_text']      = excerptAround($row['match_text'], $q, 120);
     }
     unset($row);

@@ -281,7 +281,7 @@ const App = (() => {
   }
 
   // ── Abrir conversación ─────────────────────────────────────
-  async function openConversation(convId) {
+  async function openConversation(convId, targetMsgId = null) {
     convId = parseInt(convId);
     _currentConvId = convId;
 
@@ -309,7 +309,7 @@ const App = (() => {
       if (chatArea)  chatArea.classList.add('chat-visible');
     }
 
-    await Chat.load(convId);
+    await Chat.load(convId, targetMsgId);
 
     // Actualizar unread_count a 0 en la lista local
     const conv = _conversations.find(c => c.id === convId);
@@ -435,8 +435,83 @@ const App = (() => {
   function searchConversations(value) {
     clearTimeout(_searchTimer);
     _searchTimer = setTimeout(() => {
-      loadConversations({ search: value });
-    }, 300);
+      const q = value.trim();
+      if (q.length >= 3) {
+        _doFullSearch(q);
+      } else {
+        loadConversations({ search: q });
+      }
+    }, 350);
+  }
+
+  async function _doFullSearch(q) {
+    try {
+      const qs = encodeURIComponent(q);
+      const [convRes, msgRes] = await Promise.all([
+        fetch('/api/conversations.php?status=all&search=' + qs + '&limit=20', { credentials: 'include', headers: { Accept: 'application/json' } }),
+        fetch('/api/search.php?q=' + qs, { credentials: 'include', headers: { Accept: 'application/json' } }),
+      ]);
+      const [convJson, msgJson] = await Promise.all([convRes.json(), msgRes.json()]);
+      _renderSearchResults(
+        convJson.success ? convJson.conversations : [],
+        msgJson.success  ? msgJson.results       : [],
+        q,
+      );
+    } catch (_) {}
+  }
+
+  function _renderSearchResults(convs, msgs, q) {
+    const list = document.getElementById('conv-list');
+    if (!list) return;
+
+    let html = '';
+
+    if (convs.length > 0) {
+      html += '<div class="search-section-label">Chats</div>';
+      html += convs.map(c => _buildConvItem(c)).join('');
+    }
+
+    if (msgs.length > 0) {
+      html += '<div class="search-section-label">Mensajes</div>';
+      html += msgs.map(r => {
+        const name    = _escHtml(r.contact_name || r.phone);
+        const initial = (r.contact_name || r.phone || '?')[0].toUpperCase();
+        const excerpt = _highlightMatch(_escHtml(r.match_text || ''), q);
+        const time    = (r.match_time || '').substring(11, 16);
+        const deptDot = r.dept_color
+          ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${_escAttr(r.dept_color)};margin-right:4px"></span>`
+          : '';
+        return `<div class="conv-item" data-conv-id="${r.conversation_id}"
+                     onclick="App.openConversation(${r.conversation_id}, ${r.match_message_id})">
+          <div class="conv-avatar ${_escAttr(r.status || 'attending')}">${_escHtml(initial)}</div>
+          <div class="conv-info">
+            <div class="conv-info-top">
+              <span class="conv-name">${name}</span>
+              <span class="conv-time">${_escHtml(time)}</span>
+            </div>
+            <div class="conv-phone">${_escHtml(r.phone)}</div>
+            <div class="conv-preview" style="font-style:italic">${deptDot}${excerpt}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    if (!html) {
+      html = `<div class="conv-empty"><i class="fas fa-search"></i><p>Sin resultados para "${_escHtml(q)}".</p></div>`;
+    }
+
+    list.innerHTML = html;
+
+    // Reaplazar listeners de selección activa
+    if (_currentConvId) {
+      const el = list.querySelector('[data-conv-id="' + _currentConvId + '"]');
+      if (el) el.classList.add('selected');
+    }
+  }
+
+  function _highlightMatch(escapedText, rawQ) {
+    const safeQ = _escHtml(rawQ).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escapedText.replace(new RegExp('(' + safeQ + ')', 'gi'), '<strong>$1</strong>');
   }
 
   function setActiveTab(tab) {
