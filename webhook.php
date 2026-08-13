@@ -151,23 +151,35 @@ function cuandoVuelven(): string
 
     $nombresDia = [1=>'lunes',2=>'martes',3=>'miércoles',4=>'jueves',5=>'viernes',6=>'sábado',7=>'domingo'];
 
-    // Buscar el próximo slot abierto en los próximos 7 días
-    for ($i = 1; $i <= 7; $i++) {
+    // Buscar el próximo slot abierto: primero hoy (i=0), luego días futuros
+    for ($i = 0; $i <= 7; $i++) {
         $check     = clone $ahora;
-        $check->modify("+{$i} day");
+        if ($i > 0) $check->modify("+{$i} day");
         $dia       = (int)$check->format('N');
         $diaConfig = $hours[$dia] ?? null;
 
-        if ($diaConfig && !empty($diaConfig['open'])) {
-            $start  = $diaConfig['start'] ?? '08:00';
-            $startF = ltrim($start, '0') ?: '0';   // "08:00" → "8:00"
-            $nombre = $nombresDia[$dia] ?? '';
+        if (!$diaConfig || empty($diaConfig['open'])) continue;
 
-            if ($i === 1) {
-                return "mañana *{$nombre} desde las {$startF}*";
+        $start  = $diaConfig['start'] ?? '08:00';
+        $end    = $diaConfig['end']   ?? '18:00';
+        $startF = ltrim($start, '0') ?: '0';   // "08:00" → "8:00"
+        $nombre = $nombresDia[$dia] ?? '';
+
+        if ($i === 0) {
+            // Hoy: solo aplica si el horario aún no ha terminado
+            [$endH, $endM] = array_map('intval', explode(':', $end));
+            $endTs  = mktime($endH, $endM, 0, (int)$ahora->format('m'), (int)$ahora->format('d'), (int)$ahora->format('Y'));
+            if ((int)$ahora->format('U') < $endTs) {
+                return "hoy *{$nombre} desde las {$startF}*";
             }
-            return "el *{$nombre} desde las {$startF}*";
+            // Si ya pasó el horario de hoy, continuar buscando mañana
+            continue;
         }
+
+        if ($i === 1) {
+            return "mañana *{$nombre} desde las {$startF}*";
+        }
+        return "el *{$nombre} desde las {$startF}*";
     }
 
     return "próximamente";
@@ -180,11 +192,17 @@ function _cuandoVuelvenFallback(): string
     $hora      = (int)$ahora->format('G');
 
     if ($diaSemana === 7) {
+        // Domingo → lunes
         return "el *lunes desde las 8:00*";
     } elseif ($diaSemana === 6) {
-        return $hora < 8 ? "hoy *desde las 8:00*" : "el *lunes desde las 8:00*";
+        // Sábado: abierto hasta las 14:00 (fallback)
+        if ($hora < 8)  return "hoy *desde las 8:00*";
+        if ($hora < 14) return "hoy *desde las 8:00*"; // ya dentro de horario, no debería llegar aquí
+        return "el *lunes desde las 8:00*";
     } else {
-        if ($hora < 8) return "hoy *desde las 8:00*";
+        // Lunes–Viernes: abierto 8–18
+        if ($hora < 18) return "hoy *desde las 8:00*";  // antes de las 18 (incluso madrugada) → hoy
+        // Después de las 18: buscar siguiente día hábil
         $manana    = clone $ahora;
         $manana->modify('+1 day');
         $diaMañana = (int)$manana->format('N');
