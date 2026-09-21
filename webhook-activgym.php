@@ -543,12 +543,16 @@ function panelSetBot(string $phone, string $jid = ''): void
     }
 }
 
-function panelDevolvioAlBot(string $phone): bool
+function panelDevolvioAlBot(string $phone, string $jid = ''): bool
 {
     try {
-        $convKey = GYM_CLIENT_ID . '_' . $phone;
-        $stmt    = panelDb()->prepare('SELECT status FROM conversations WHERE conv_key = ? LIMIT 1');
-        $stmt->execute([$convKey]);
+        $candidates = array_unique(array_filter([
+            GYM_CLIENT_ID . '_' . $phone,
+            $jid ? GYM_CLIENT_ID . '_' . $jid : '',
+        ]));
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
+        $stmt = panelDb()->prepare("SELECT status FROM conversations WHERE conv_key IN ($placeholders) ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute($candidates);
         $row = $stmt->fetch();
         // Devolvió al bot si está en 'bot', 'resolved', o no existe conversación
         return !$row || in_array($row['status'], ['bot', 'resolved']);
@@ -1003,7 +1007,7 @@ if ($esMultimedia || empty($mensaje)) {
     $estadoTemp  = $sesDataTemp['estado'] ?? null;
 
     if ($estadoTemp === 'asesor') {
-        if (panelDevolvioAlBot($from)) {
+        if (panelDevolvioAlBot($from, $telefono)) {
             // Panel ya devolvió control al bot: no notificar ni reabrir chat
             wlog("[$clientId] Multimedia ignorada — panel ya está en bot");
             guardarEstado($sesKey, null);
@@ -1078,7 +1082,7 @@ $pdfUrl    = null;
 // ── A. Estado ASESOR activo ───────────────────────────────────
 if ($estado === 'asesor') {
 
-    if (panelDevolvioAlBot($from)) {
+    if (panelDevolvioAlBot($from, $telefono)) {
         wlog("[$clientId] Panel devolvió control al bot — reseteando estado");
         guardarEstado($sesKey, null);
         $respuesta = resetMenu($sesKey, $nombre);
