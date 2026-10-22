@@ -661,12 +661,9 @@ const App = (() => {
     if (conv.contact_name)             local.contact_name = conv.contact_name;
     if (conv.unread_count !== undefined) local.unread_count = parseInt(conv.unread_count) || 0;
 
-    // Mover al tope si no está ya
-    if (idx > 0) {
-      _conversations.splice(idx, 1);
-      _conversations.unshift(local);
-    }
-
+    // ponytail: NO reordenar aquí. _onNewMessage ya mueve al tope cuando llega msg.
+    // Reordenar en cada conversation_updated hace brincar la lista con BD remota
+    // (SSE emite varios updates por iteración por la ventana solapada).
     _renderConvList(_conversations);
     if (convId === _currentConvId) Chat.updateConv(conv);
   }

@@ -13,7 +13,11 @@
       "Bash(tail -30 error_log)",
       "Bash(tail -30 php_error.log)",
       "Bash(python3 *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(grep -n 'notifyPanel\\($from' 'D:\\\\DESARROLLO WEB\\\\SOFTWARE EN LA NUBE\\\\PANEL WHATSAPP\\\\webhook.php')",
+      "Bash(git checkout *)",
+      "Bash(ls assets/css/)",
+      "Bash(ls assets/)"
     ]
   }
 }
