@@ -77,6 +77,21 @@ try {
         if ($lid !== null) {
             $phone   = $lid;
             $convKey = $clientId . '_' . $lid;
+
+            // Re-chequear existencia con el conv_key resuelto (puede haber conv previa con @lid)
+            $stmt = $pdo->prepare('SELECT * FROM conversations WHERE conv_key = ? LIMIT 1');
+            $stmt->execute([$convKey]);
+            $existing = $stmt->fetch() ?: $existing;
+
+            if ($existing && in_array($existing['status'], ['pending', 'attending'])) {
+                http_response_code(409);
+                echo json_encode([
+                    'success'        => false,
+                    'error'          => 'Ya existe una conversación activa con ese número.',
+                    'conversationId' => (int)$existing['id'],
+                ]);
+                exit;
+            }
         }
     }
 
