@@ -102,6 +102,20 @@ if (!empty($meta['image']) && !preg_match('#^https?://#i', $meta['image'])) {
     $meta['image'] = _absUrl($finalUrl, $meta['image']);
 }
 
+// Fallback: favicon si no hay imagen OG
+if (empty($meta['image'])) {
+    $icon = _parseFavicon($html);
+    if ($icon && !preg_match('#^https?://#i', $icon)) {
+        $icon = _absUrl($finalUrl, $icon);
+    }
+    if (!$icon) {
+        $p = parse_url($finalUrl);
+        $icon = $p['scheme'] . '://' . $p['host'] . '/favicon.ico';
+    }
+    $meta['image']     = $icon;
+    $meta['image_type'] = 'favicon';
+}
+
 if (empty($meta['title'])) {
     _cacheMiss($file, 'Sin título');
 }
@@ -111,6 +125,7 @@ $result = [
     'title'       => mb_substr($meta['title'], 0, 200),
     'description' => mb_substr($meta['description'] ?? '', 0, 400),
     'image'       => $meta['image'] ?? '',
+    'image_type'  => $meta['image_type'] ?? 'og',
     'site'        => $site,
     'url'         => $finalUrl,
 ];
@@ -155,6 +170,33 @@ function _parseOg(string $html): array {
         $out['description'] = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
     return $out;
+}
+
+function _parseFavicon(string $html): string {
+    // Busca <link rel="... icon ..." href="...">. Prefiere apple-touch-icon (más grande).
+    if (preg_match_all('#<link[^>]+rel=["\']([^"\']+)["\'][^>]+href=["\']([^"\']+)["\']#i', $html, $m)
+        || preg_match_all('#<link[^>]+href=["\']([^"\']+)["\'][^>]+rel=["\']([^"\']+)["\']#i', $html, $m2)) {
+        $rels  = $m[1] ?? $m2[2];
+        $hrefs = $m[2] ?? $m2[1];
+        $best = ''; $bestRank = -1;
+        $rank = [
+            'apple-touch-icon' => 3,
+            'icon'             => 2,
+            'shortcut icon'    => 2,
+            'mask-icon'        => 1,
+        ];
+        foreach ($rels as $i => $rel) {
+            $relLc = strtolower(trim($rel));
+            foreach ($rank as $k => $v) {
+                if (strpos($relLc, $k) !== false && $v > $bestRank) {
+                    $best = html_entity_decode($hrefs[$i], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $bestRank = $v;
+                }
+            }
+        }
+        return $best;
+    }
+    return '';
 }
 
 function _absUrl(string $base, string $rel): string {

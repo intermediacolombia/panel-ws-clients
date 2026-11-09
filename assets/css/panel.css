@@ -2574,3 +2574,17 @@ input, textarea { font-family: inherit; }
   color: var(--texto-suave);
 }
 [data-theme="dark"] .composer-link-preview { background: rgba(255,255,255,.06); }
+
+/* Previa con favicon: layout horizontal compacto, no hero */
+.link-preview.link-preview-fav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+.link-preview .lp-img-fav { flex: 0 0 auto; }
+.link-preview .lp-img-fav img {
+  width: 32px; height: 32px; max-height: 32px;
+  object-fit: contain; background: #fff; border-radius: 4px; padding: 2px;
+}
+.link-preview.link-preview-fav .lp-body { padding: 0; }
+
+.composer-link-preview .clp-img-fav img {
+  width: 28px; height: 28px;
+  object-fit: contain; background: #fff; padding: 2px;
+}

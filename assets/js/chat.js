@@ -520,8 +520,9 @@ const Chat = (() => {
       _lpCache.get(url).then(data => {
         if (url !== _composerPreviewUrl) return;
         if (!data || !data.success) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        const isFav = data.image_type === 'favicon';
         const img = data.image
-          ? `<div class="clp-img"><img src="${_escAttr(data.image)}" onerror="this.parentNode.remove()"></div>`
+          ? `<div class="clp-img ${isFav ? 'clp-img-fav' : ''}"><img src="${_escAttr(data.image)}" onerror="this.parentNode.remove()"></div>`
           : '';
         box.innerHTML =
           `${img}
@@ -551,10 +552,11 @@ const Chat = (() => {
     _lpCache.get(url).then(data => {
       if (!node.isConnected) return;
       if (!data || !data.success) { node.remove(); return; }
+      const isFav = data.image_type === 'favicon';
       const img = data.image
-        ? `<div class="lp-img"><img src="${_escAttr(data.image)}" loading="lazy" onerror="this.parentNode.remove()"></div>`
+        ? `<div class="lp-img ${isFav ? 'lp-img-fav' : ''}"><img src="${_escAttr(data.image)}" loading="lazy" onerror="this.parentNode.remove()"></div>`
         : '';
-      node.className = 'link-preview';
+      node.className = 'link-preview' + (isFav ? ' link-preview-fav' : '');
       node.innerHTML =
         `<a href="${_escAttr(data.url || url)}" target="_blank" rel="noopener noreferrer">
            ${img}
