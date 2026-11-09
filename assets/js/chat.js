@@ -472,8 +472,51 @@ const Chat = (() => {
     </div>`;
 
     bubble.innerHTML = innerHtml;
+
+    // Preview de enlaces (primera URL http/https en el texto o caption)
+    const srcText = (msg.type === 'text' || !msg.type) ? msg.content : msg.caption;
+    const urlMatch = srcText && srcText.match(/https?:\/\/[^\s<>"']+/);
+    if (urlMatch) {
+      const url = urlMatch[0].replace(/[.,;:!?)\]>]+$/, '');
+      const ph  = document.createElement('div');
+      ph.className = 'link-preview loading';
+      ph.dataset.url = url;
+      bubble.appendChild(ph);
+      _loadLinkPreview(url, ph);
+    }
+
     wrap.appendChild(bubble);
     return wrap;
+  }
+
+  // ── Link preview (Open Graph) ──────────────────────────────
+  const _lpCache = new Map(); // url → promise
+  function _loadLinkPreview(url, node) {
+    if (!_lpCache.has(url)) {
+      _lpCache.set(url, fetch('/api/link_preview.php?url=' + encodeURIComponent(url), {
+        credentials: 'same-origin'
+      }).then(r => r.json()).catch(() => ({ success: false })));
+    }
+    _lpCache.get(url).then(data => {
+      if (!node.isConnected) return;
+      if (!data || !data.success) { node.remove(); return; }
+      const img = data.image
+        ? `<div class="lp-img"><img src="${_escAttr(data.image)}" loading="lazy" onerror="this.parentNode.remove()"></div>`
+        : '';
+      node.className = 'link-preview';
+      node.innerHTML =
+        `<a href="${_escAttr(data.url || url)}" target="_blank" rel="noopener noreferrer">
+           ${img}
+           <div class="lp-body">
+             <div class="lp-site">${_escHtml(data.site || '')}</div>
+             <div class="lp-title">${_escHtml(data.title || '')}</div>
+             ${data.description ? `<div class="lp-desc">${_escHtml(data.description)}</div>` : ''}
+           </div>
+         </a>`;
+      // Mantener el scroll pegado abajo si el usuario está al fondo
+      const c = el.messages();
+      if (c && c.scrollHeight - c.scrollTop - c.clientHeight < 120) scrollToBottom();
+    });
   }
 
   // Crea un contenedor de grupo de día con cabecera sticky (excepto hoy)
