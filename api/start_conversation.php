@@ -158,7 +158,11 @@ try {
     ]);
 
 } catch (PDOException $e) {
+    error_log('[api/start_conversation] PDO ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Error interno (BD): ' . $e->getMessage()]);
+} catch (\Throwable $e) {
     error_log('[api/start_conversation] ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Error interno.']);
+    echo json_encode(['success' => false, 'error' => 'Error interno: ' . $e->getMessage()]);
 }
