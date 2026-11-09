@@ -311,6 +311,13 @@ const Chat = (() => {
                <i class="fas fa-info-circle"></i>
              </button>`;
 
+    // Botón eliminar (solo supervisor)
+    if (role === 'supervisor') {
+      html += `<button class="btn-action btn-delete" onclick="Chat.deleteConversation()" title="Eliminar conversación (permanente)">
+                 <i class="fas fa-trash"></i>
+               </button>`;
+    }
+
     actEl.innerHTML = html;
 
   }
@@ -1264,6 +1271,37 @@ const Chat = (() => {
     getConv,
     getConvId,
     initListeners,
+    deleteConversation: async () => {
+      if (!_conv) return;
+      const ok = await ConfirmModal.show({
+        title: 'Eliminar conversación',
+        msg: '¿Eliminar permanentemente esta conversación y todos sus mensajes y archivos? Esta acción no se puede deshacer.',
+        icon: 'warning',
+        confirmText: 'Eliminar',
+      });
+      if (!ok) return;
+      try {
+        const res  = await fetch('/api/delete_conversation.php', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: _conv.id }),
+        });
+        const json = await res.json();
+        if (!json.success) { Notify.showToast(json.error || 'No se pudo eliminar.', 'error'); return; }
+        const deletedId = _conv.id;
+        _conv = null;
+        _messages = [];
+        const wrap = el.wrap(); const welcome = el.welcome();
+        if (wrap)    wrap.classList.add('hidden');
+        if (welcome) welcome.classList.remove('hidden');
+        document.querySelector('[data-conv-id="' + deletedId + '"]')?.remove();
+        if (window.App) App.loadConversations();
+        Notify.showToast('Conversación eliminada.', 'success');
+      } catch (_) {
+        Notify.showToast('Error de red.', 'error');
+      }
+    },
     updateConv: (conv) => {
       if (_conv && conv.id === _conv.id) {
         _conv = Object.assign(_conv, conv);

@@ -618,6 +618,7 @@ input, textarea { font-family: inherit; }
 .btn-transfer  { background: #34495e;          color: var(--blanco); }
 .btn-rename    { background: #5c6bc0;          color: var(--blanco); }
 .btn-info      { background: #f0f4f8;          color: var(--texto);  }
+.btn-delete    { background: #e53935;          color: var(--blanco); }
 
 /* Menú de transferencia */
 .transfer-menu {
