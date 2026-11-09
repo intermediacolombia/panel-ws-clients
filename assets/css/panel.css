@@ -2518,3 +2518,59 @@ input, textarea { font-family: inherit; }
 }
 [data-theme="dark"] .link-preview { background: rgba(255,255,255,.06); }
 [data-theme="dark"] .link-preview .lp-title { color: #eee; }
+
+/* ── Preview en el composer antes de enviar ─────────────────── */
+.composer-link-preview {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  margin: 0 8px 6px;
+  border-left: 3px solid var(--verde-mid, #25D366);
+  background: rgba(0,0,0,.04);
+  border-radius: 6px;
+  max-width: 420px;
+}
+.composer-link-preview.hidden { display: none; }
+.composer-link-preview .clp-img img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+.composer-link-preview .clp-body { flex: 1; min-width: 0; padding-right: 20px; }
+.composer-link-preview .clp-site {
+  font-size: .65rem;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+}
+.composer-link-preview .clp-title {
+  font-size: .82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-link-preview .clp-desc {
+  font-size: .74rem;
+  color: var(--texto-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-link-preview .clp-close {
+  position: absolute;
+  top: 4px; right: 6px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--texto-suave);
+  line-height: 1;
+}
+.composer-link-preview .clp-loading {
+  font-size: .78rem;
+  color: var(--texto-suave);
+}
+[data-theme="dark"] .composer-link-preview { background: rgba(255,255,255,.06); }

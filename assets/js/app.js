@@ -147,7 +147,13 @@ const App = (() => {
     } catch (_) {}
   }
 
+  // ponytail: si hay búsqueda full (>=3 chars) activa, no pisar los resultados
+  function _isSearchActive() {
+    return (document.getElementById('conv-search')?.value?.trim() || '').length >= 3;
+  }
+
   function _renderConvList(convs) {
+    if (_isSearchActive()) return;
     const list = document.getElementById('conv-list');
     if (!list) return;
 
@@ -357,6 +363,12 @@ const App = (() => {
       _conversations[idx] = Object.assign(_conversations[idx], conv);
     } else {
       _conversations.unshift(conv);
+    }
+
+    // ponytail: no tocar el DOM mientras hay búsqueda activa
+    if (_isSearchActive()) {
+      if (parseInt(conv.id) === _currentConvId) Chat.updateConv(conv);
+      return;
     }
 
     // Re-renderizar el ítem específico

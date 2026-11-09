@@ -489,6 +489,57 @@ const Chat = (() => {
     return wrap;
   }
 
+  // ── Preview en el composer antes de enviar ─────────────────
+  let _composerPreviewUrl = null;
+  let _composerPreviewDebounce = null;
+  function _updateComposerLinkPreview(text) {
+    const box = document.getElementById('composer-link-preview');
+    if (!box) return;
+    const m = text && text.match(/https?:\/\/[^\s<>"']+/);
+    const url = m ? m[0].replace(/[.,;:!?)\]>]+$/, '') : null;
+
+    if (!url) {
+      box.classList.add('hidden');
+      box.innerHTML = '';
+      _composerPreviewUrl = null;
+      return;
+    }
+    if (url === _composerPreviewUrl) return;
+    _composerPreviewUrl = url;
+
+    clearTimeout(_composerPreviewDebounce);
+    _composerPreviewDebounce = setTimeout(() => {
+      if (url !== _composerPreviewUrl) return;
+      box.classList.remove('hidden');
+      box.innerHTML = '<div class="clp-loading"><i class="fas fa-spinner fa-spin"></i> Cargando previa...</div>';
+      if (!_lpCache.has(url)) {
+        _lpCache.set(url, fetch('/api/link_preview.php?url=' + encodeURIComponent(url), {
+          credentials: 'same-origin'
+        }).then(r => r.json()).catch(() => ({ success: false })));
+      }
+      _lpCache.get(url).then(data => {
+        if (url !== _composerPreviewUrl) return;
+        if (!data || !data.success) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        const img = data.image
+          ? `<div class="clp-img"><img src="${_escAttr(data.image)}" onerror="this.parentNode.remove()"></div>`
+          : '';
+        box.innerHTML =
+          `${img}
+           <div class="clp-body">
+             <div class="clp-site">${_escHtml(data.site || '')}</div>
+             <div class="clp-title">${_escHtml(data.title || '')}</div>
+             ${data.description ? `<div class="clp-desc">${_escHtml(data.description)}</div>` : ''}
+           </div>
+           <button class="clp-close" title="Quitar previa">&times;</button>`;
+        box.querySelector('.clp-close').onclick = () => {
+          box.classList.add('hidden');
+          box.innerHTML = '';
+          _composerPreviewUrl = '__dismissed__' + url; // no volver a mostrar para esta URL
+        };
+      });
+    }, 400);
+  }
+
   // ── Link preview (Open Graph) ──────────────────────────────
   const _lpCache = new Map(); // url → promise
   function _loadLinkPreview(url, node) {
@@ -737,6 +788,7 @@ const Chat = (() => {
         // Limpiar
         textarea.value = '';
         _autoResize(textarea);
+        _updateComposerLinkPreview('');
         removeFile();
         // Agregar burbuja
         appendMessage(json.message);
@@ -1154,7 +1206,7 @@ const Chat = (() => {
   function initListeners() {
     const ta = el.textarea();
     if (ta) {
-      ta.addEventListener('input', () => _autoResize(ta));
+      ta.addEventListener('input', () => { _autoResize(ta); _updateComposerLinkPreview(ta.value); });
       ta.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();

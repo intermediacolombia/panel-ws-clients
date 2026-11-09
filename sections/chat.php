@@ -51,6 +51,9 @@
           <input type="text" id="caption-input" placeholder="Añadir descripción del archivo...">
         </div>
 
+        <!-- Preview de enlace antes de enviar -->
+        <div id="composer-link-preview" class="composer-link-preview hidden"></div>
+
         <!-- Composición normal -->
         <div id="chat-composer-content">
           <div class="composer-row">
