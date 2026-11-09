@@ -163,7 +163,7 @@ const Chat = (() => {
   }
 
   // ── Render completo ────────────────────────────────────────
-  function _render() {
+  function _render(skipMessages) {
     if (!_conv) return;
 
     const chatWrap = el.wrap();
@@ -184,7 +184,10 @@ const Chat = (() => {
     }
 
     _renderActions();
-    renderMessages(_messages);
+    // ponytail: no re-renderizar mensajes en updates de conversación (SSE remoto
+    // dispara muchos). Mensajes nuevos entran por appendMessage; re-render solo
+    // en carga inicial o cambio de conversación.
+    if (!skipMessages) renderMessages(_messages);
     _updateComposer();
     _updateAvatar();
   }
@@ -1167,7 +1170,7 @@ const Chat = (() => {
     updateConv: (conv) => {
       if (_conv && conv.id === _conv.id) {
         _conv = Object.assign(_conv, conv);
-        _render();
+        _render(true); // ponytail: no tocar los mensajes, preserva scroll
       }
     },
   };
