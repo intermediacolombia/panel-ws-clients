@@ -814,10 +814,19 @@ const App = (() => {
     }
   }
 
+  function removeConversation(convId) {
+    convId = parseInt(convId);
+    const idx = _conversations.findIndex(c => parseInt(c.id) === convId);
+    if (idx !== -1) _conversations.splice(idx, 1);
+    document.querySelector('[data-conv-id="' + convId + '"]')?.remove();
+    if (_currentConvId === convId) _currentConvId = null;
+  }
+
   return {
     init,
     navigate,
     loadConversations,
+    removeConversation,
     openConversation,
     backToList,
     updateConversationInList,

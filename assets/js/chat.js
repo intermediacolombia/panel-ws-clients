@@ -1295,8 +1295,10 @@ const Chat = (() => {
         const wrap = el.wrap(); const welcome = el.welcome();
         if (wrap)    wrap.classList.add('hidden');
         if (welcome) welcome.classList.remove('hidden');
-        document.querySelector('[data-conv-id="' + deletedId + '"]')?.remove();
-        if (window.App) App.loadConversations();
+        if (window.App) {
+          App.removeConversation(deletedId);
+          App.loadConversations();
+        }
         Notify.showToast('Conversación eliminada.', 'success');
       } catch (_) {
         Notify.showToast('Error de red.', 'error');
