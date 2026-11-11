@@ -11,6 +11,7 @@ class Realtime {
 
     this._es          = null;
     this._pollTimer   = null;
+    this._reconnectTimer = null;
     this._pollSince   = Date.now() / 1000 - 5;
     this._backoff     = 1000;  // ms para reconexión SSE
     this._maxBackoff  = 30000;
@@ -19,6 +20,7 @@ class Realtime {
   }
 
   start() {
+    if (this._running) return;
     this._running = true;
     this._connectSSE();
   }
@@ -30,6 +32,7 @@ class Realtime {
       this._es = null;
     }
     clearTimeout(this._pollTimer);
+    clearTimeout(this._reconnectTimer);
   }
 
   // ── SSE ─────────────────────────────────────────────────────
@@ -80,6 +83,7 @@ class Realtime {
     });
 
     this._es.onerror = () => {
+      if (!this._running) return;
       this._es.close();
       this._es = null;
       // Reconexión con backoff
@@ -87,7 +91,7 @@ class Realtime {
       this._backoff = Math.min(this._backoff * 2, this._maxBackoff);
       // Mientras SSE no reconnecta, usar polling
       this._startPollCycle();
-      setTimeout(() => {
+      this._reconnectTimer = setTimeout(() => {
         if (this._running) this._connectSSE();
       }, delay);
     };
@@ -115,7 +119,7 @@ class Realtime {
         headers: { 'Accept': 'application/json' },
       });
 
-      if (res.ok) {
+      if (res.ok && this._running) {
         const json = await res.json();
         if (json.success) {
           this._pollSince = json.timestamp || (Date.now() / 1000);
@@ -128,7 +132,7 @@ class Realtime {
     } catch (_) {}
 
     // Si SSE está conectado, no seguir haciendo poll
-    if (!this._es || this._es.readyState === EventSource.CLOSED) {
+    if (this._running && (!this._es || this._es.readyState === EventSource.CLOSED)) {
       this._pollTimer = setTimeout(() => this._doPoll(), 4000);
     }
   }

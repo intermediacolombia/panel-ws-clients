@@ -815,6 +815,7 @@ const Chat = (() => {
 
   // ── Enviar mensaje ─────────────────────────────────────────
   async function handleSend() {
+    if (typeof PanelTabs !== 'undefined' && !PanelTabs.isActive()) return;
     if (!_conv || _sending) return;
 
     const textarea = el.textarea();

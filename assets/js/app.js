@@ -884,6 +884,15 @@ const App = (() => {
 
   return {
     init,
+    pausePanel() { _realtime?.stop(); },
+    resumePanel() {
+      _realtime?.start();
+      loadNotifications();
+      if (_currentSection === 'conversations') {
+        loadConversations();
+        if (_currentConvId) Chat.load(_currentConvId);
+      }
+    },
     navigate,
     loadConversations,
     removeConversation,
@@ -906,4 +915,4 @@ const App = (() => {
 })();
 
 // Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener('DOMContentLoaded', () => PanelTabs.init());

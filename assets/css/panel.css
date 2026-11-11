@@ -534,6 +534,34 @@ input, textarea { font-family: inherit; }
 }
 
 /* ── CHAT MAIN ──────────────────────────────────────────────── */
+.panel-tab-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, .65);
+  backdrop-filter: blur(4px);
+}
+.panel-tab-dialog[hidden] { display: none; }
+.panel-tab-dialog-box {
+  width: 100%;
+  max-width: 460px;
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--blanco);
+  color: var(--texto);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, .25);
+  text-align: center;
+}
+.panel-tab-dialog-box > i { font-size: 2.5rem; color: var(--verde-mid); }
+.panel-tab-dialog-box h2 { margin: 20px 0 12px; font-size: 1.25rem; }
+.panel-tab-dialog-box p { color: var(--texto-suave); line-height: 1.6; }
+.panel-tab-dialog-actions { display: flex; justify-content: center; gap: 12px; margin-top: 24px; }
+.panel-tab-dialog-actions a { text-decoration: none; }
+
 .chat-main {
   position: relative;
   flex: 1;

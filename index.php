@@ -335,6 +335,7 @@ const ProfileModal = (() => {
 <script src="assets/js/notify.js?v=<?= filemtime(__DIR__ . '/assets/js/notify.js') ?>"></script>
 <script src="assets/js/realtime.js?v=<?= filemtime(__DIR__ . '/assets/js/realtime.js') ?>"></script>
 <script src="assets/js/chat.js?v=<?= filemtime(__DIR__ . '/assets/js/chat.js') ?>"></script>
+<script src="assets/js/panel-tabs.js?v=<?= filemtime(__DIR__ . '/assets/js/panel-tabs.js') ?>"></script>
 <script src="assets/js/app.js?v=<?= filemtime(__DIR__ . '/assets/js/app.js') ?>"></script>
 
 </body>
