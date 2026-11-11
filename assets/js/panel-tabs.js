@@ -137,7 +137,8 @@ const PanelTabs = (() => {
     });
     window.addEventListener('pageshow', event => { if (event.persisted) claim(); });
     setActive(false);
-    claim();
+    // Una pestaña recién abierta toma el control; la anterior muestra el aviso.
+    claim(true);
   }
 
   return { init, isActive: () => active };
