@@ -18,6 +18,11 @@
 
     <!-- Columna principal -->
     <div class="chat-main">
+      <div class="chat-file-drop-overlay" aria-hidden="true">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <strong>Suelta el archivo para adjuntarlo</strong>
+        <span>Quedará listo para enviar</span>
+      </div>
 
       <!-- Header del chat -->
       <div class="chat-header">

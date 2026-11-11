@@ -170,6 +170,7 @@ const Chat = (() => {
     const welcome  = el.welcome();
     if (chatWrap)  chatWrap.classList.remove('hidden');
     if (welcome)   welcome.classList.add('hidden');
+    _initFileDrop();
 
     // Header
     const nameEl = el.headerName();
@@ -668,6 +669,63 @@ const Chat = (() => {
   }
 
   // ── Manejo de archivos ─────────────────────────────────────
+  function _initFileDrop() {
+    const zone = document.querySelector('.chat-main');
+    if (!zone || zone.dataset.fileDropReady) return;
+    zone.dataset.fileDropReady = 'true';
+    let depth = 0;
+    const reset = () => {
+      depth = 0;
+      zone.classList.remove('file-drag-over');
+    };
+    const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
+    const canAttach = () => _conv && !_sending &&
+      !el.wrap().classList.contains('hidden') &&
+      el.composer() && !el.composer().classList.contains('hidden');
+
+    zone.addEventListener('dragenter', event => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      if (canAttach()) {
+        depth++;
+        zone.classList.add('file-drag-over');
+      }
+    });
+    zone.addEventListener('dragover', event => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = canAttach() ? 'copy' : 'none';
+      if (!canAttach()) reset();
+    });
+    zone.addEventListener('dragleave', event => {
+      if (!hasFiles(event)) return;
+      if (--depth <= 0) reset();
+    });
+    zone.addEventListener('drop', event => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      reset();
+      if (!canAttach()) return;
+      const files = event.dataTransfer.files;
+      if (files.length !== 1) {
+        showError('Arrastra un solo archivo a la vez.');
+        return;
+      }
+      const file = files[0];
+      handleFileSelect(file, file.type.startsWith('image/') ? 'image' : 'document');
+    });
+    // Evitar que el navegador abra el archivo al soltar fuera del chat.
+    document.addEventListener('dragover', event => {
+      if (hasFiles(event)) event.preventDefault();
+    });
+    document.addEventListener('drop', event => {
+      if (hasFiles(event)) event.preventDefault();
+      reset();
+    });
+    document.addEventListener('dragend', reset);
+    window.addEventListener('blur', reset);
+  }
+
   function handleFileSelect(file, type) {
     // type = 'image' | 'document'
     const ALLOWED_IMAGE = ['image/jpeg','image/png','image/gif','image/webp'];
@@ -698,11 +756,15 @@ const Chat = (() => {
       return;
     }
 
+    const conversationId = _conv?.id;
     const reader = new FileReader();
     reader.onload = e => {
+      if (_conv?.id !== conversationId || _sending) return;
       _fileState = { file, dataUrl: e.target.result, type };
       _showFilePreview(file, type, e.target.result);
+      el.captionInput()?.focus();
     };
+    reader.onerror = () => showError('No se pudo leer el archivo. Intenta adjuntarlo de nuevo.');
     reader.readAsDataURL(file);
   }
 
