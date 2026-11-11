@@ -15,6 +15,7 @@ const App = (() => {
   // ── Inicializar ────────────────────────────────────────────
   function init() {
     Chat.initListeners();
+    _initConversationFileDrop();
 
     // Pedir permiso de notificaciones
     Notify.requestPermission();
@@ -287,6 +288,65 @@ const App = (() => {
   }
 
   // ── Abrir conversación ─────────────────────────────────────
+  function _initConversationFileDrop() {
+    const list = document.getElementById('conv-list');
+    if (!list) return;
+    let hoverId = null;
+    let timer = null;
+    let openingId = null;
+    let opening = null;
+    const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
+    const clear = () => {
+      clearTimeout(timer);
+      hoverId = null;
+      list.querySelectorAll('.file-drag-target').forEach(item => item.classList.remove('file-drag-target'));
+    };
+    const open = id => {
+      if (openingId !== id) {
+        openingId = id;
+        opening = openConversation(id);
+      }
+      return opening;
+    };
+    list.addEventListener('dragover', event => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      const item = event.target.closest('.conv-item[data-conv-id]');
+      if (!item) { clear(); return; }
+      event.dataTransfer.dropEffect = 'copy';
+      const id = Number(item.dataset.convId);
+      if (id === hoverId) return;
+      clear();
+      hoverId = id;
+      item.classList.add('file-drag-target');
+      timer = setTimeout(() => { open(id); }, 450);
+    });
+    list.addEventListener('dragleave', event => {
+      if (!list.contains(event.relatedTarget)) clear();
+    });
+    list.addEventListener('drop', async event => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      const item = event.target.closest('.conv-item[data-conv-id]');
+      const files = Array.from(event.dataTransfer.files);
+      clear();
+      if (!item) return;
+      const id = Number(item.dataset.convId);
+      await open(id);
+      if (_currentConvId !== id) return;
+      if (files.length !== 1) {
+        Chat.showError('Arrastra un solo archivo a la vez.');
+        return;
+      }
+      Chat.attachDroppedFile(files[0], id);
+      openingId = null;
+    });
+    const end = () => { clear(); openingId = null; };
+    document.addEventListener('drop', end);
+    document.addEventListener('dragend', end);
+    window.addEventListener('blur', end);
+  }
+
   async function openConversation(convId, targetMsgId = null) {
     convId = parseInt(convId);
     _currentConvId = convId;

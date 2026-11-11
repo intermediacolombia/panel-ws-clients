@@ -566,6 +566,12 @@ input, textarea { font-family: inherit; }
 .chat-file-drop-overlay span { color: var(--texto-suave); }
 .chat-main.file-drag-over > .chat-file-drop-overlay { display: flex; }
 
+.conv-item.file-drag-target {
+  outline: 2px dashed var(--verde-mid);
+  outline-offset: -4px;
+  background: var(--bg-input, var(--blanco));
+}
+
 /* Chat header */
 .chat-header {
   display: flex;

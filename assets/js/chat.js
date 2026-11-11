@@ -7,6 +7,8 @@ const Chat = (() => {
   let _messages     = [];     // Mensajes cargados
   let _fileState    = null;   // Archivo pendiente de enviar { file, dataUrl, type }
   let _sending      = false;
+  let _loadVersion  = 0;
+  let _loadingChat  = false;
   let _hasMore      = false;  // Hay mensajes anteriores sin cargar
   let _loadingMore  = false;  // Carga en curso (evitar doble request)
   const _ppCache    = {};     // Cache foto de perfil: phone → url|false
@@ -34,6 +36,8 @@ const Chat = (() => {
 
   // ── Cargar conversación ────────────────────────────────────
   async function load(convId, targetMsgId = null) {
+    const version = ++_loadVersion;
+    _loadingChat = true;
     _hasMore     = false;
     _loadingMore = false;
     try {
@@ -42,10 +46,12 @@ const Chat = (() => {
         headers: { 'Accept': 'application/json' },
       });
       const json = await res.json();
+      if (version !== _loadVersion) return;
       if (!json.success) {
         Notify.showToast('Error al cargar conversación: ' + (json.error || ''), 'error');
         return;
       }
+      if (_conv?.id !== json.conversation.id) removeFile();
       _conv     = json.conversation;
       _messages = json.messages || [];
       _hasMore  = json.has_more === true;
@@ -54,7 +60,10 @@ const Chat = (() => {
       _initScrollLoader();
       if (targetMsgId) scrollToMessage(targetMsgId);
     } catch (e) {
+      if (version !== _loadVersion) return;
       Notify.showToast('Error de red al cargar chat.', 'error');
+    } finally {
+      if (version === _loadVersion) _loadingChat = false;
     }
   }
 
@@ -679,7 +688,7 @@ const Chat = (() => {
       zone.classList.remove('file-drag-over');
     };
     const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
-    const canAttach = () => _conv && !_sending &&
+    const canAttach = () => _conv && !_sending && !_loadingChat &&
       !el.wrap().classList.contains('hidden') &&
       el.composer() && !el.composer().classList.contains('hidden');
 
@@ -727,6 +736,7 @@ const Chat = (() => {
   }
 
   function handleFileSelect(file, type) {
+    if (_loadingChat || _sending) return;
     // type = 'image' | 'document'
     const ALLOWED_IMAGE = ['image/jpeg','image/png','image/gif','image/webp'];
     const ALLOWED_DOC   = [
@@ -759,7 +769,7 @@ const Chat = (() => {
     const conversationId = _conv?.id;
     const reader = new FileReader();
     reader.onload = e => {
-      if (_conv?.id !== conversationId || _sending) return;
+      if (_conv?.id !== conversationId || _sending || _loadingChat) return;
       _fileState = { file, dataUrl: e.target.result, type };
       _showFilePreview(file, type, e.target.result);
       el.captionInput()?.focus();
@@ -1305,6 +1315,14 @@ const Chat = (() => {
 
   return {
     load,
+    attachDroppedFile(file, convId) {
+      if (_loadingChat || !_conv || Number(_conv.id) !== Number(convId)) return;
+      if (el.composer()?.classList.contains('hidden')) {
+        showError('Reactiva o asígnate esta conversación antes de adjuntar archivos.');
+        return;
+      }
+      handleFileSelect(file, file.type.startsWith('image/') ? 'image' : 'document');
+    },
     scrollToMessage,
     renderMessages,
     appendMessage,
