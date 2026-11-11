@@ -9,6 +9,7 @@ const Chat = (() => {
   let _sending      = false;
   let _loadVersion  = 0;
   let _loadingChat  = false;
+  let _loadController = null;
   let _hasMore      = false;  // Hay mensajes anteriores sin cargar
   let _loadingMore  = false;  // Carga en curso (evitar doble request)
   const _ppCache    = {};     // Cache foto de perfil: phone → url|false
@@ -37,11 +38,16 @@ const Chat = (() => {
   // ── Cargar conversación ────────────────────────────────────
   async function load(convId, targetMsgId = null) {
     const version = ++_loadVersion;
+    _loadController?.abort();
+    const controller = new AbortController();
+    _loadController = controller;
+    const timeout = setTimeout(() => controller.abort(), 20000);
     _loadingChat = true;
     _hasMore     = false;
     _loadingMore = false;
     try {
       const res  = await fetch('/api/conversation.php?id=' + convId, {
+        signal: controller.signal,
         credentials: 'include',
         headers: { 'Accept': 'application/json' },
       });
@@ -61,8 +67,11 @@ const Chat = (() => {
       if (targetMsgId) scrollToMessage(targetMsgId);
     } catch (e) {
       if (version !== _loadVersion) return;
-      Notify.showToast('Error de red al cargar chat.', 'error');
+      Notify.showToast(e.name === 'AbortError'
+        ? 'La conversación tardó demasiado. Selecciónala de nuevo para reintentar.'
+        : 'Error de red al cargar chat.', 'error');
     } finally {
+      clearTimeout(timeout);
       if (version === _loadVersion) _loadingChat = false;
     }
   }
@@ -1301,7 +1310,7 @@ const Chat = (() => {
     document.addEventListener('click', e => {
       const attachMenu   = el.attachMenu();
       const btnAtt       = document.getElementById('btn-attach');
-      if (attachMenu && !attachMenu.contains(e.target) && e.target !== btnAtt) {
+      if (attachMenu && !attachMenu.contains(e.target) && !btnAtt?.contains(e.target)) {
         attachMenu.classList.remove('open');
       }
 

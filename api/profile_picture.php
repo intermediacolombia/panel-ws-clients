@@ -8,6 +8,11 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+
+// Liberar la sesión antes de consultar y descargar la foto remota.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 require_once __DIR__ . '/../helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {

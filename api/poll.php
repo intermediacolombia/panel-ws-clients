@@ -6,6 +6,10 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+// El long polling espera hasta 25 segundos; no retener el bloqueo de sesión.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 require_once __DIR__ . '/../helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');

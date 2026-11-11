@@ -2,11 +2,7 @@
 const PanelTabs = (() => {
   const id = window.crypto?.randomUUID?.() || Date.now() + '-' + Math.random();
   const key = 'panel-active-tab:' + location.pathname + ':' + window.PANEL_CONFIG.agentId;
-  const lockName = key + ':lock';
-  const useLocks = !!navigator.locks;
   let active = false;
-  let release = null;
-  let heartbeat = null;
   let initialized = false;
   let pending = false;
   let overlay;
@@ -42,8 +38,6 @@ const PanelTabs = (() => {
   }
 
   function pause() {
-    clearInterval(heartbeat);
-    if (release) { release(); release = null; }
     if (active) setActive(false);
   }
 
@@ -54,10 +48,6 @@ const PanelTabs = (() => {
   function activate() {
     write();
     setActive(true);
-    heartbeat = setInterval(() => {
-      if (read()?.id !== id) { pause(); return; }
-      write();
-    }, 4000);
   }
 
   async function claim(force = false) {
@@ -65,37 +55,19 @@ const PanelTabs = (() => {
     pending = true;
     button.disabled = true;
     try {
-      if (useLocks) {
-        if (force) {
-          write();
-          channel?.postMessage({ claim: id });
-        }
-        // El bloqueo se libera incluso si la pestaña se cierra o falla.
-        navigator.locks.request(lockName, force ? {} : { ifAvailable: true }, async lock => {
-          pending = false;
-          button.disabled = false;
-          if (!lock || (force && read()?.id !== id)) return;
-          await new Promise(resolve => {
-            release = resolve;
-            activate();
-          });
-        }).catch(() => {
-          pending = false;
-          button.disabled = false;
-        });
-      } else {
-        const owner = read();
-        if (force || !owner || Date.now() - owner.time > 20000) {
-          activate();
-          channel?.postMessage({ claim: id });
-        }
-        pending = false;
-        button.disabled = false;
+      // No esperar a que una pestaña suspendida libere un bloqueo del navegador.
+      const owner = read();
+      if (force || !owner || owner.id === id) {
+        activate();
+        channel?.postMessage({ claim: id });
       }
     } catch (_) {
       pending = false;
       button.disabled = false;
       overlay.querySelector('p').textContent = 'Permite el almacenamiento del navegador para usar el panel en una sola pestaña.';
+    } finally {
+      pending = false;
+      button.disabled = false;
     }
   }
 

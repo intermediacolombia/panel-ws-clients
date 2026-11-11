@@ -8,6 +8,11 @@
 
 require_once __DIR__ . '/../auth.php';
 
+// La consulta externa no debe bloquear las demás peticiones del agente.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
